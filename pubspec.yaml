@@ -35,6 +35,9 @@ dependencies:
   cloud_firestore: ^5.0.0     # لجلب البيانات حية ومباشرة
   cached_network_image: ^3.3.1 # لعرض صور الطلاب باحترافية وبدون تعليق
   shared_preferences: ^2.2.2   # لميزة "تذكرني" وحفظ الحساب
+  firebase_messaging: ^15.0.0
+  flutter_local_notifications: ^17.0.0
+
 
 
   # The following adds the Cupertino Icons font to your application.

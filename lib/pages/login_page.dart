@@ -104,7 +104,7 @@ class _LoginPageState extends State<LoginPage> {
           SnackBar(content: Text('حدث خطأ أثناء تسجيل الدخول: $e')),
         );
       }
-    } finally { // 🔥 تم تعديل الكلمة هنا واختفى الخط الأحمر
+    } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -126,7 +126,7 @@ class _LoginPageState extends State<LoginPage> {
               Icon(Icons.menu_book_rounded, size: 80, color: primaryColor),
               const SizedBox(height: 15),
               Text('بوابة أولياء الأمور', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryColor)),
-              const Text('معهد الشيخ سعيد العبدالله لعلوم القرآن', style: TextStyle(fontSize: 14, color: Colors.grey)),
+              const Text('معهد حبل الله المبارك لعلوم القرآن', style: TextStyle(fontSize: 14, color: Colors.grey)),
               const SizedBox(height: 40),
               TextField(
                 controller: _serialController,

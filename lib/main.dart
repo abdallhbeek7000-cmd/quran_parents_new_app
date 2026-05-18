@@ -2,18 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'firebase_options.dart'; 
 import 'pages/login_page.dart';
 import 'pages/parent_home_page.dart';
 
+// تعريف أداة الإشعارات المحلية كمتغير عام
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // تهيئة الفايربيز الرسمية والمستقرة للويب
+  // تهيئة الفايربيز
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // إعدادات تهيئة الإشعارات للأندرويد
+  const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
   
+  await flutterLocalNotificationsPlugin.initialize(
+    initializationSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse details) {
+      // هنا يمكن إضافة حدث عند ضغط ولي الأمر على الإشعار إذا أردت مستقبلاً
+    },
+  );
+
   runApp(const MyApp());
 }
 
@@ -24,7 +39,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'معهد الشيخ سعيد العبدالله',
+      title: 'معهد حبل الله',
       theme: ThemeData(
         fontFamily: 'Cairo',
       ),
@@ -33,7 +48,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// 🧠 وجت الفحص الذكي: يفتح التطبيق بلمحة بصر ويفحص الحساب المحفوظ بدون تجميد الويب
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -51,12 +65,10 @@ class AuthWrapper extends StatelessWidget {
         
         final String? savedSerial = snapshot.data!.getString('saved_student_serial');
         
-        // إذا لم يجد حساباً سابقاً، يفتح صفحة تسجيل الدخول فوراً
         if (savedSerial == null || savedSerial.isEmpty) {
           return const LoginPage();
         }
 
-        // إذا وجد حساباً، يجلب بيانات الطالب لفتح البوابة مباشرة
         int? serialAsInt = int.tryParse(savedSerial);
         return FutureBuilder<QuerySnapshot>(
           future: FirebaseFirestore.instance
