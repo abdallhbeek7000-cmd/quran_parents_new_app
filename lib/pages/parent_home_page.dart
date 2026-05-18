@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_messaging/firebase_messaging.dart'; // المكتبة الرسمية للإشعارات
+import 'package:firebase_messaging/firebase_messaging.dart'; 
 import 'login_page.dart';
 
 class ParentHomePage extends StatefulWidget {
@@ -26,13 +26,12 @@ class _ParentHomePageState extends State<ParentHomePage> {
   void initState() {
     super.initState();
     _loadHonorBoardAndImages();
-    _saveDeviceToken(); // 🔥 تشغيل دالة توليد وحفظ توكن الهاتف فور الدخول
+    _saveDeviceToken(); 
   }
 
-  // 🔥 الدالة السحرية لطلب صلاحيات الإشعارات وتوليد الـ Token وحفظه بالفايربيز مجاناً
+  // دالة طلب صلاحية الإشعارات وتوليد الـ Token وحفظه بالفايربيز مجاناً
   void _saveDeviceToken() async {
     try {
-      // 1. طلب صلاحية إظهار الإشعارات بشكل رسمي من نظام الأندرويد
       NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
         alert: true,
         badge: true,
@@ -40,11 +39,9 @@ class _ParentHomePageState extends State<ParentHomePage> {
       );
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        // 2. توليد رمز هاتف ولي الأمر الفريد عبر سيرفرات جوجل
         String? token = await FirebaseMessaging.instance.getToken();
         
         if (token != null) {
-          // 3. تحديث أو إنشاء حقل fcmToken داخل مستند هذا الطالب المحدد في قاعدة البيانات
           await FirebaseFirestore.instance
               .collection('students')
               .doc(widget.student.id)

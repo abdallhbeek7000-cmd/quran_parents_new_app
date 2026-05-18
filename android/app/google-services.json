@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "647287839038",
+    "project_id": "quran-habal",
+    "storage_bucket": "quran-habal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:647287839038:android:8f7702d50541ea58a6f46f",
+        "android_client_info": {
+          "package_name": "com.example.quran_habal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBl-HXpo5A3Gs5rhKMVr2aYgeHuNPLYn8Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:647287839038:android:5c580cb0b2cc3f24a6f46f",
+        "android_client_info": {
+          "package_name": "com.habalallah.parents"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBl-HXpo5A3Gs5rhKMVr2aYgeHuNPLYn8Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
