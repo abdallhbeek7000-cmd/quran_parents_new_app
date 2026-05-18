@@ -1,0 +1,51 @@
+name: Build Flutter APK
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. جلب الكود من المستودع
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. تثبيت جافا (نسخة 17 المستقرة والمتوافقة)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 3. تثبيت لغة فلاتر تلقائياً وتحديد نسخة مستقرة تمنع تضارب كوتلن للاندرويد
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.2'
+          channel: 'stable'
+
+      # 4. تحميل حزم ومكتبات المشروع
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 5. تنظيف الكاش القديم للأندرويد قبل البناء
+      - name: Clean Project
+        run: flutter clean
+
+      # 6. بناء ملف الـ APK النظيف (Release)
+      - name: Build APK
+        run: flutter build apk --release
+
+      # 7. رفع ملف الـ APK الناتج بنسخة v4 المدعومة
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quran-parents-app-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
