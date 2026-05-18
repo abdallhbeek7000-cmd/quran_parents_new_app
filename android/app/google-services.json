@@ -26,6 +26,25 @@
     },
     {
       "client_info": {
+        "mobilesdk_app_id": "1:647287839038:android:76fab80d1ffd8d0aa6f46f",
+        "android_client_info": {
+          "package_name": "com.example.quran_parents_new"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBl-HXpo5A3Gs5rhKMVr2aYgeHuNPLYn8Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:647287839038:android:5c580cb0b2cc3f24a6f46f",
         "android_client_info": {
           "package_name": "com.habalallah.parents"

@@ -39,7 +39,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'معهد حبل الله',
+      title: 'معهد الشيخ سعيد العبدالله',
       theme: ThemeData(
         fontFamily: 'Cairo',
       ),
