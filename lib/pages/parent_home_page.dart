@@ -1,10 +1,8 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../main.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // المكتبة الرسمية للإشعارات
 import 'login_page.dart';
 
 class ParentHomePage extends StatefulWidget {
@@ -23,79 +21,41 @@ class _ParentHomePageState extends State<ParentHomePage> {
   List<Map<String, dynamic>> allWinners = [];
   Map<String, String> studentImagesCache = {};
   bool _isHonorLoading = true;
-  
-  StreamSubscription<QuerySnapshot>? _sessionSubscription;
-  bool _isInitialLoad = true;
 
   @override
   void initState() {
     super.initState();
     _loadHonorBoardAndImages();
-    _startSessionListener();
+    _saveDeviceToken(); // 🔥 تشغيل دالة توليد وحفظ توكن الهاتف فور الدخول
   }
 
-  @override
-  void dispose() {
-    _sessionSubscription?.cancel(); // إلغاء المستمع عند الخروج لحفظ موارد الهاتف
-    super.dispose();
-  }
+  // 🔥 الدالة السحرية لطلب صلاحيات الإشعارات وتوليد الـ Token وحفظه بالفايربيز مجاناً
+  void _saveDeviceToken() async {
+    try {
+      // 1. طلب صلاحية إظهار الإشعارات بشكل رسمي من نظام الأندرويد
+      NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
-  // 🔥 نظام المراقبة الذكي لإطلاق الإشعارات المجانية فوراً عند نزول جلسة جديدة
-  void _startSessionListener() {
-    final String studentId = widget.student.id;
-
-    _sessionSubscription = FirebaseFirestore.instance
-        .collection('sessions')
-        .where('studentId', isEqualTo: studentId)
-        .snapshots()
-        .listen((snapshot) {
-      
-      // نتخطى القراءة الأولى لتجنب إطلاق إشعارات قديمة ومسجلة سابقاً
-      if (_isInitialLoad) {
-        _isInitialLoad = false;
-        return;
-      }
-
-      // إذا حدث أي تغيير أو إضافة جلسة جديدة من المشرف
-      for (var change in snapshot.docChanges) {
-        if (change.type == DocumentChangeType.added) {
-          var sessionData = change.doc.data() as Map<String, dynamic>;
-          String sessionDate = sessionData['date']?.toString() ?? '';
-          bool isAbsent = sessionData['absent'] ?? false;
-          String rating = sessionData['rating'] ?? 'ممتاز';
-
-          // تشغيل الإشعار المحلي فوراً على هاتف الأب
-          _showLocalNotification(sessionDate, isAbsent, rating);
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        // 2. توليد رمز هاتف ولي الأمر الفريد عبر سيرفرات جوجل
+        String? token = await FirebaseMessaging.instance.getToken();
+        
+        if (token != null) {
+          // 3. تحديث أو إنشاء حقل fcmToken داخل مستند هذا الطالب المحدد في قاعدة البيانات
+          await FirebaseFirestore.instance
+              .collection('students')
+              .doc(widget.student.id)
+              .update({'fcmToken': token});
+              
+          print("FCM Token saved successfully: $token ✅");
         }
       }
-    });
-  }
-
-  // 🔥 دالة بناء وإطلاق مظهر الإشعار في الأندرويد
-  void _showLocalNotification(String date, bool isAbsent, String rating) async {
-    final String studentName = (widget.student.data() as Map<String, dynamic>)['name'] ?? 'ابنكم';
-    
-    String notificationBody = isAbsent 
-        ? "تم تسجيل غياب لـ $studentName في حلقة اليوم $date"
-        : "تم تسجيل مراجعة وحفظ جديد لـ $studentName بتقييم ($rating) ليوم $date";
-
-    const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
-      'quran_sessions_channel',
-      'إشعارات الحلقات اليومية',
-      channelDescription: 'تنبيهات أولياء الأمور عند تسجيل حلقات حفظ جديدة للأبناء',
-      importance: Importance.max,
-      priority: Priority.high,
-      playSound: true,
-    );
-    
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
-    
-    await flutterLocalNotificationsPlugin.show(
-      DateTime.now().millisecond, // آي دي فريد لكل إشعار يمنع تداخلها
-      '📢 تحديث يومي جديد من الحلقة',
-      notificationBody,
-      platformChannelSpecifics,
-    );
+    } catch (e) {
+      print("Error saving FCM token: $e");
+    }
   }
 
   void _loadHonorBoardAndImages() async {
