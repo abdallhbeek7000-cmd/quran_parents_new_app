@@ -200,7 +200,10 @@ class _ParentHomePageState extends State<ParentHomePage> {
               }
 
               var docs = snapshot.data!.docs;
-              docs.sort((a, b) {
+              
+              // ترتيب الجلسات برمجياً لضمان الدقة وتجنب مشاكل الـ Index في الفايربيز
+              List<QueryDocumentSnapshot> sortedDocs = List.from(docs);
+              sortedDocs.sort((a, b) {
                 String aDate = (a.data() as Map<String, dynamic>)['date']?.toString() ?? '';
                 String bDate = (b.data() as Map<String, dynamic>)['date']?.toString() ?? '';
                 return bDate.compareTo(aDate);
@@ -209,10 +212,10 @@ class _ParentHomePageState extends State<ParentHomePage> {
               return SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    var session = docs[index].data() as Map<String, dynamic>;
+                    var session = sortedDocs[index].data() as Map<String, dynamic>;
                     return _buildSessionItem(session);
                   },
-                  childCount: docs.length,
+                  childCount: sortedDocs.length,
                 ),
               );
             },
@@ -332,8 +335,10 @@ class _ParentHomePageState extends State<ParentHomePage> {
   Widget _buildSessionItem(Map<String, dynamic> session) {
     final String sessionDate = session['date']?.toString() ?? 'بدون تاريخ';
     final bool isAbsent = session['absent'] ?? false;
+    final bool isExam = session['isExam'] ?? false; 
     final String rating = session['rating'] ?? 'ممتاز';
 
+    // 1️⃣ حالة غياب الطالب
     if (isAbsent) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -373,6 +378,92 @@ class _ParentHomePageState extends State<ParentHomePage> {
       );
     }
 
+    // 2️⃣ حالة جلسة الاختبار (تلوين ديناميكي ذكي ومصلح بالكامل) 🔥
+    if (isExam) {
+      int score = int.tryParse(session['examScore']?.toString() ?? '0') ?? 0;
+      
+      Color mainColor = Colors.green; // الافتراضي أخضر (80 - 100)
+      Color bgColor = Colors.green.shade50;
+      Color textColor = Colors.green.shade900; // تم الإصلاح لـ 900 لمنع الخطأ الأحمر
+
+      if (score >= 0 && score <= 50) {
+        mainColor = Colors.red; // أحمر (0 - 50)
+        bgColor = Colors.red.shade50;
+        textColor = Colors.red.shade900; // تم الإصلاح لـ 900
+      } else if (score >= 51 && score <= 79) {
+        mainColor = Colors.orange; // برتقالي (51 - 79)
+        bgColor = Colors.orange.shade50;
+        textColor = Colors.orange.shade900; // تم الإصلاح لـ 900
+      }
+
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border(right: BorderSide(color: mainColor, width: 4)), 
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(sessionDate, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(color: mainColor.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                  child: Text("جلسة اختبار 📝", style: TextStyle(color: mainColor, fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 15),
+              decoration: BoxDecoration(
+                color: bgColor, 
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: mainColor.withOpacity(0.2), width: 1)
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.workspace_premium, color: mainColor, size: 28),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "نتيجة اختبار ابنكم في هذه الجلسة",
+                        style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "$score / 100",
+                        style: TextStyle(
+                          fontSize: 22, 
+                          fontWeight: FontWeight.bold, 
+                          color: textColor 
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (session['notes'] != null && session['notes'].toString().trim().isNotEmpty) ...[
+              const Divider(height: 20),
+              Text("📝 ملاحظة المشرف: ${session['notes']}", style: const TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold)),
+            ]
+          ],
+        ),
+      );
+    }
+
+    // 3️⃣ حالة جلسة التسميع العادية
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       padding: const EdgeInsets.all(15),
