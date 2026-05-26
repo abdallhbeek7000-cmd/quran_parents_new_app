@@ -39,7 +39,17 @@ jobs:
       - name: Clean Project
         run: flutter clean
 
-      # 6. بناء ملف الـ APK النظيف (Release)
+      # 🔐 5.5 خطوة فك تشفير وتجهيز ملفات التوقيع الملوكي لايف على السيرفر
+      - name: Configure Production Production Keystore
+        run: |
+          echo "${{ secrets.SIGNING_KEY }}" > keystore_base64.txt
+          base64 -d keystore_base64.txt > android/app/upload-keystore.jks
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=upload-keystore.jks" >> android/key.properties
+
+      # 6. بناء ملف الـ APK النظيف (Release) الموقع رسمياً بمفتاحك
       - name: Build APK
         run: flutter build apk --release
 
