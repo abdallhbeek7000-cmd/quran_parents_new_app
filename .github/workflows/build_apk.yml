@@ -39,11 +39,28 @@ jobs:
       - name: Clean Project
         run: flutter clean
 
-      # 🔐 5.5 خطوة فك تشفير وتجهيز ملفات التوقيع الملوكي لايف على السيرفر
+      # 🔐 5.5 خطوة فك تشفير وتجهيز ملفات التوقيع الملوكي عبر بايثون (تمنع خطأ invalid input)
       - name: Configure Production Production Keystore
         run: |
-          echo "${{ secrets.SIGNING_KEY }}" > keystore_base64.txt
-          base64 -d keystore_base64.txt > android/app/upload-keystore.jks
+          cat << 'EOF' > decode_key.py
+          import base64
+          import os
+
+          # جلب النص المشفر من أسرار غيت هاب وتمريره بأمان
+          secret_data = """${{ secrets.SIGNING_KEY }}"""
+          
+          # تنظيف النص من أي زيادات وإشارات ويندوز العالقة
+          clean_data = "".join(secret_data.split()).replace("-----BEGINCERTIFICATE-----", "").replace("-----ENDCERTIFICATE-----", "")
+          
+          # فك التشفير وحفظ الملف بالمسار الصحيح
+          with open("android/app/upload-keystore.jks", "wb") as f:
+              f.write(base64.b64decode(clean_data))
+          EOF
+          
+          # تشغيل سكريبت التنظيف والفك الذكي
+          python3 decode_key.py
+          
+          # توليد ملف كلمات السر المربوط بالـ Gradle
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
