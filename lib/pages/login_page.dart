@@ -17,6 +17,68 @@ class _LoginPageState extends State<LoginPage> {
 
   final Color primaryColor = const Color(0xff425c75);
 
+  @override
+  void initState() {
+    super.initState();
+    _checkSavedLogin(); // 🎯 تفعيل الفحص التلقائي الذكي فور تشغيل الشاشة لمنع طلب تسجيل الدخول المتكرر
+  }
+
+  // 🔄 دالة التحقق السحري من وجود جلسة دخول محفوظة مسبقاً في الجوال
+  void _checkSavedLogin() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? savedSerial = prefs.getString('saved_student_serial');
+
+    if (savedSerial != null && savedSerial.isNotEmpty) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final int? serialNum = int.tryParse(savedSerial);
+        List<DocumentSnapshot> matchingStudents = [];
+
+        // محاولة جلب الطالب بناءً على الرقم المحفوظ (رقماً أو نصاً)
+        if (serialNum != null) {
+          final intQuery = await FirebaseFirestore.instance
+              .collection('students')
+              .where('serial', isEqualTo: serialNum)
+              .limit(1)
+              .get();
+          if (intQuery.docs.isNotEmpty) matchingStudents = intQuery.docs;
+        }
+
+        if (matchingStudents.isEmpty) {
+          final stringQuery = await FirebaseFirestore.instance
+              .collection('students')
+              .where('serial', isEqualTo: savedSerial)
+              .limit(1)
+              .get();
+          if (stringQuery.docs.isNotEmpty) matchingStudents = stringQuery.docs;
+        }
+
+        // إذا وجدنا مستند الطالب المسجل بالسيرفر، ننقله مباشرة لصفحة الأهل فوراً 🚀
+        if (matchingStudents.isNotEmpty && mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ParentHomePage(student: matchingStudents.first),
+            ),
+          );
+          return; // إنهاء الدالة بنجاح
+        }
+      } catch (e) {
+        print("Error during auto login sync: $e");
+      }
+
+      // إذا حصلت مشكلة أو لم نجد الطالب بالسيرفر (مثلا تم حذفه من الإدارة)، نلغي التحميل ليقوم بالدخول اليدوي
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   void _login() async {
     final String serialInput = _serialController.text.trim();
     final String phoneInput = _phoneController.text.trim().replaceAll(' ', '');
@@ -128,6 +190,8 @@ class _LoginPageState extends State<LoginPage> {
               Text('بوابة أولياء الأمور', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryColor)),
               const Text('معهد الشيخ سعيد العبدالله لعلوم القرآن', style: TextStyle(fontSize: 14, color: Colors.grey)),
               const SizedBox(height: 40),
+              
+              // حقول النص وأزرار التحكم
               TextField(
                 controller: _serialController,
                 keyboardType: TextInputType.number,

@@ -1,3 +1,4 @@
+import 'dart:io'; 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -29,7 +30,6 @@ class _ParentHomePageState extends State<ParentHomePage> {
     _saveDeviceToken(); 
   }
 
-  // دالة طلب صلاحية الإشعارات وتوليد الـ Token وحفظه بالفايربيز مجاناً
   void _saveDeviceToken() async {
     try {
       NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
@@ -157,78 +157,123 @@ class _ParentHomePageState extends State<ParentHomePage> {
           ),
         ],
       ),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _buildProfileCard(data)),
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Text("🏆 لوحة الشرف والتميز", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ),
-          ),
-          SliverToBoxAdapter(child: _buildHonorBoardSection(serialStr)),
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.only(right: 20, left: 20, top: 25, bottom: 10),
-              child: Row(
-                children: [
-                  Icon(Icons.history, color: Colors.blue),
-                  SizedBox(width: 10),
-                  Text("سجل الحفظ والمراجعة اليومي", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ],
-              ),
-            ),
-          ),
-          StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('sessions')
-                .where('studentId', isEqualTo: studentId)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('sessions')
+            .where('studentId', isEqualTo: studentId)
+            .snapshots(),
+        builder: (context, sessionSnapshot) {
+          int totalSessions = 0;
+          int absentCount = 0;
+          int excellentCount = 0;
+          int goodCount = 0;
+          int badCount = 0;
+          List<QueryDocumentSnapshot> sortedDocs = [];
+
+          if (sessionSnapshot.hasData) {
+            var docs = sessionSnapshot.data!.docs;
+            totalSessions = docs.length;
+            
+            for (var doc in docs) {
+              var sData = doc.data() as Map<String, dynamic>;
+              bool isAbsent = sData['absent'] ?? false;
+              String rValue = sData['rating']?.toString() ?? '';
+
+              if (isAbsent) {
+                absentCount++;
+              } else {
+                if (rValue == 'ممتاز') excellentCount++;
+                if (rValue == 'جيد') goodCount++;
+                if (rValue == 'سيء') badCount++;
               }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return SliverToBoxAdapter(
+            }
+
+            sortedDocs = List.from(docs);
+            sortedDocs.sort((a, b) {
+              String aDate = (a.data() as Map<String, dynamic>)['date']?.toString() ?? '';
+              String bDate = (b.data() as Map<String, dynamic>)['date']?.toString() ?? '';
+              return bDate.compareTo(aDate);
+            });
+          }
+
+          int presentCount = totalSessions - absentCount;
+
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _buildProfileCard(data)),
+              
+              SliverToBoxAdapter(child: _buildQuranProgressSection(sessionSnapshot)),
+              
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Text("📊 الملخص العام لأداء الابن", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: _buildParentStatsDashboard(
+                  total: totalSessions,
+                  present: presentCount,
+                  absent: absentCount,
+                  excellent: excellentCount,
+                  good: goodCount,
+                  bad: badCount,
+                ),
+              ),
+              
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Text("🏆 لوحة الشرف والتميز", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+              ),
+              SliverToBoxAdapter(child: _buildHonorBoardSection(serialStr)),
+              
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.only(right: 20, left: 20, top: 25, bottom: 10),
+                  child: Row(
+                    children: [
+                      Icon(Icons.history, color: Colors.blue),
+                      SizedBox(width: 10),
+                      Text("سجل الحفظ والمراجعة اليومي", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
+                ),
+              ),
+              
+              if (sessionSnapshot.connectionState == ConnectionState.waiting)
+                const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())))
+              else if (sortedDocs.isEmpty)
+                SliverToBoxAdapter(
                   child: Center(
                     child: Padding(
                       padding: const EdgeInsets.all(40.0),
                       child: Text("لا يوجد جلسات مسجلة بعد لهذا الطالب", style: TextStyle(color: Colors.grey[600])),
                     ),
                   ),
-                );
-              }
-
-              var docs = snapshot.data!.docs;
-              
-              // ترتيب الجلسات برمجياً لضمان الدقة وتجنب مشاكل الـ Index في الفايربيز
-              List<QueryDocumentSnapshot> sortedDocs = List.from(docs);
-              sortedDocs.sort((a, b) {
-                String aDate = (a.data() as Map<String, dynamic>)['date']?.toString() ?? '';
-                String bDate = (b.data() as Map<String, dynamic>)['date']?.toString() ?? '';
-                return bDate.compareTo(aDate);
-              });
-
-              return SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    var session = sortedDocs[index].data() as Map<String, dynamic>;
-                    return _buildSessionItem(session);
-                  },
-                  childCount: sortedDocs.length,
+                )
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      var session = sortedDocs[index].data() as Map<String, dynamic>;
+                      return _buildSessionItem(session);
+                    },
+                    childCount: sortedDocs.length,
+                  ),
                 ),
-              );
-            },
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 50)),
-        ],
+              const SliverToBoxAdapter(child: SizedBox(height: 50)),
+            ],
+          );
+        },
       ),
     );
   }
 
   Widget _buildProfileCard(Map<String, dynamic> data) {
     return Container(
-      margin: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 10),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -254,12 +299,224 @@ class _ParentHomePageState extends State<ParentHomePage> {
     );
   }
 
+  Widget _buildParentStatsDashboard({
+    required int total,
+    required int present,
+    required int absent,
+    required int excellent,
+    required int good,
+    required int bad,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  title: "الحضور والالتزام",
+                  value: "$present من أصل $total",
+                  subtitle: "جلسة حلقة حية",
+                  icon: Icons.check_circle_rounded,
+                  color: Colors.green,
+                ),
+              ),
+              Expanded(
+                child: _buildStatCard(
+                  title: "أيام الغياب",
+                  value: "$absent جلسات",
+                  subtitle: absent >= 3 ? "تنبيه غياب متكرر! ⚠️" : "ضمن الحد الطبيعي",
+                  icon: Icons.cancel_rounded,
+                  color: absent >= 3 ? Colors.red : Colors.grey,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  title: "تقييم ممتاز",
+                  value: "$excellent مرات",
+                  subtitle: "مستوى مميز 🌟",
+                  icon: Icons.workspace_premium_rounded,
+                  color: const Color(0xffD4AF37),
+                ),
+              ),
+              Expanded(
+                child: _buildStatCard(
+                  title: "تقييم جيد",
+                  value: "$good مرات",
+                  subtitle: "مستوى مستقر وثابت",
+                  icon: Icons.thumb_up_rounded, // 🎯 تم تعديل هذا السطر وإصلاح الخطأ المطبعي الحين بنجاح!
+                  color: Colors.blue,
+                ),
+              ),
+              Expanded(
+                child: _buildStatCard(
+                  title: "تقييم سيء",
+                  value: "$bad مرات",
+                  subtitle: "يحتاج تشجيع ومتابعة",
+                  icon: Icons.trending_down_rounded,
+                  color: Colors.redAccent,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      margin: const EdgeInsets.all(5),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+              Icon(icon, color: color.withOpacity(0.8), size: 16),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: primaryColor)),
+          const SizedBox(height: 2),
+          Text(subtitle, style: TextStyle(fontSize: 9, color: color == Colors.red ? Colors.red : Colors.grey[500], fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuranProgressSection(AsyncSnapshot<QuerySnapshot> sessionSnapshot) {
+    double savedPages = 0.0;
+
+    if (sessionSnapshot.hasData && sessionSnapshot.data!.docs.isNotEmpty) {
+      var sessionDocs = sessionSnapshot.data!.docs;
+      List<QueryDocumentSnapshot> sortedSessions = List.from(sessionDocs)
+        ..retainWhere((doc) {
+          var s = doc.data() as Map<String, dynamic>;
+          return (s['absent'] == false && s['isExam'] == false);
+        });
+        
+      sortedSessions.sort((a, b) {
+        String aDate = (a.data() as Map<String, dynamic>)['date']?.toString() ?? '';
+        String bDate = (b.data() as Map<String, dynamic>)['date']?.toString() ?? '';
+        return bDate.compareTo(aDate);
+      });
+
+      for (var doc in sortedSessions) {
+        var sData = doc.data() as Map<String, dynamic>;
+        if (sData.containsKey('total_memorized_pages') && sData['total_memorized_pages'] != null) {
+          savedPages = (sData['total_memorized_pages'] as num).toDouble();
+          break;
+        }
+      }
+    }
+
+    double totalQuranPages = 604.0;
+    double remainingPages = (totalQuranPages - savedPages).clamp(0.0, totalQuranPages);
+    double progressPercentage = (savedPages / totalQuranPages).clamp(0.0, 1.0);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_stories_rounded, color: Colors.teal, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                "مستوى تقدم الطالب في الختمة 👑",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: primaryColor),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "تم تمكين $savedPages من أصل 604 صفحة",
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: Colors.teal.shade50, borderRadius: BorderRadius.circular(8)),
+                child: Text(
+                  "${(progressPercentage * 100).toStringAsFixed(1)}%",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.teal.shade900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: progressPercentage,
+              minHeight: 10,
+              backgroundColor: Colors.grey.shade100,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.teal.shade600),
+            ),
+          ),
+          const SizedBox(height: 15),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.teal.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.favorite, color: Colors.red.shade400, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    remainingPages == 0 
+                        ? "مبارك! ابنكم ختم كتاب الله كاملاً، هنيئاً لكم تاج الوقار 🎉👑"
+                        : "متبقي للطالب [ ${remainingPages.toStringAsFixed(0)} صفحة ] ويختم كتاب الله كاملاً ✨",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryColor, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHonorBoardSection(String currentStudentSerial) {
     if (_isHonorLoading) {
       return const SizedBox(height: 140, child: Center(child: CircularProgressIndicator()));
     }
     if (allWinners.isEmpty) {
-      return const SizedBox(height: 140, child: Center(child: Text("سيتم إعلان الفرسان قريباً", style: TextStyle(fontSize: 13, color: Colors.grey))));
+      return const SizedBox(height: 140, child: Center(child: Text("سيتم إعلان النجوم قريباً", style: TextStyle(fontSize: 13, color: Colors.grey))));
     }
 
     return SizedBox(
@@ -338,7 +595,6 @@ class _ParentHomePageState extends State<ParentHomePage> {
     final bool isExam = session['isExam'] ?? false; 
     final String rating = session['rating'] ?? 'ممتاز';
 
-    // 1️⃣ حالة غياب الطالب
     if (isAbsent) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -378,22 +634,21 @@ class _ParentHomePageState extends State<ParentHomePage> {
       );
     }
 
-    // 2️⃣ حالة جلسة الاختبار (تلوين ديناميكي ذكي ومصلح بالكامل) 🔥
     if (isExam) {
       int score = int.tryParse(session['examScore']?.toString() ?? '0') ?? 0;
       
-      Color mainColor = Colors.green; // الافتراضي أخضر (80 - 100)
+      Color mainColor = Colors.green; 
       Color bgColor = Colors.green.shade50;
-      Color textColor = Colors.green.shade900; // تم الإصلاح لـ 900 لمنع الخطأ الأحمر
+      Color textColor = Colors.green.shade900; 
 
       if (score >= 0 && score <= 50) {
-        mainColor = Colors.red; // أحمر (0 - 50)
+        mainColor = Colors.red; 
         bgColor = Colors.red.shade50;
-        textColor = Colors.red.shade900; // تم الإصلاح لـ 900
+        textColor = Colors.red.shade900; 
       } else if (score >= 51 && score <= 79) {
-        mainColor = Colors.orange; // برتقالي (51 - 79)
+        mainColor = Colors.orange; 
         bgColor = Colors.orange.shade50;
-        textColor = Colors.orange.shade900; // تم الإصلاح لـ 900
+        textColor = Colors.orange.shade900; 
       }
 
       return Container(
@@ -463,7 +718,6 @@ class _ParentHomePageState extends State<ParentHomePage> {
       );
     }
 
-    // 3️⃣ حالة جلسة التسميع العادية
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       padding: const EdgeInsets.all(15),
@@ -521,7 +775,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
   Widget _buildGradeBadge(String rating) {
     Color badgeColor = Colors.green;
     if (rating == 'جيد جداً' || rating == 'جيد') badgeColor = Colors.orange;
-    if (rating == 'مقبول' || rating == 'ضعيف') badgeColor = Colors.red;
+    if (rating == 'مقبول' || rating == 'ضعيف' || rating == 'سيء') badgeColor = Colors.red;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
