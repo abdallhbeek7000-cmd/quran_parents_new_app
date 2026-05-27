@@ -1,4 +1,4 @@
-package com.example.quran_parents_new
+package com.alamal.parentsapp
 
 import io.flutter.embedding.android.FlutterActivity
 

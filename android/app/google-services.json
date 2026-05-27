@@ -7,6 +7,44 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:647287839038:android:98d8fb6ebca00eefa6f46f",
+        "android_client_info": {
+          "package_name": "com.alamal.parentsapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBl-HXpo5A3Gs5rhKMVr2aYgeHuNPLYn8Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:647287839038:android:a53695b2f24e036fa6f46f",
+        "android_client_info": {
+          "package_name": "com.example.quran_exams_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBl-HXpo5A3Gs5rhKMVr2aYgeHuNPLYn8Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:647287839038:android:8f7702d50541ea58a6f46f",
         "android_client_info": {
           "package_name": "com.example.quran_habal"
