@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart'; 
 import 'login_page.dart';
+import 'update_checker.dart'; // تأكد أن ملف الـ Checker بنفس المجلد
 
 class ParentHomePage extends StatefulWidget {
   final DocumentSnapshot student;
@@ -28,6 +29,11 @@ class _ParentHomePageState extends State<ParentHomePage> {
     super.initState();
     _loadHonorBoardAndImages();
     _saveDeviceToken(); 
+    
+    // تشغيل فحص التحديث أوتوماتيكياً بأمان بعد بناء الواجهة
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateChecker.checkForUpdates(context);
+    });
   }
 
   void _saveDeviceToken() async {
@@ -177,14 +183,15 @@ class _ParentHomePageState extends State<ParentHomePage> {
             for (var doc in docs) {
               var sData = doc.data() as Map<String, dynamic>;
               bool isAbsent = sData['absent'] ?? false;
-              String rValue = sData['rating']?.toString() ?? '';
+              
+              String rValue = sData['memorizationRating']?.toString() ?? sData['rating']?.toString() ?? '';
 
               if (isAbsent) {
                 absentCount++;
               } else {
-                if (rValue == 'ممتاز') excellentCount++;
-                if (rValue == 'جيد') goodCount++;
-                if (rValue == 'سيء') badCount++;
+                if (rValue == 'ممتاز' || rValue == 'جيد جداً') excellentCount++;
+                if (rValue == 'جيد' || rValue == 'مقبول') goodCount++;
+                if (rValue == 'سيء' || rValue == 'ضعيف') badCount++;
               }
             }
 
@@ -207,7 +214,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
               const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  child: Text("📊 الملخص العام لأداء الابن", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  child: Text("📊 الملخص العام لأداء الطالب", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
               ),
               SliverToBoxAdapter(
@@ -338,27 +345,27 @@ class _ParentHomePageState extends State<ParentHomePage> {
             children: [
               Expanded(
                 child: _buildStatCard(
-                  title: "تقييم ممتاز",
+                  title: "مستوى ممتاز",
                   value: "$excellent مرات",
-                  subtitle: "مستوى مميز 🌟",
+                  subtitle: "حفظ متقن ومميز 🌟",
                   icon: Icons.workspace_premium_rounded,
                   color: const Color(0xffD4AF37),
                 ),
               ),
               Expanded(
                 child: _buildStatCard(
-                  title: "تقييم جيد",
+                  title: "مستوى جيد",
                   value: "$good مرات",
-                  subtitle: "مستوى مستقر وثابت",
-                  icon: Icons.thumb_up_rounded, // 🎯 تم تعديل هذا السطر وإصلاح الخطأ المطبعي الحين بنجاح!
+                  subtitle: "أداء مستقر وثابت",
+                  icon: Icons.thumb_up_rounded, 
                   color: Colors.blue,
                 ),
               ),
               Expanded(
                 child: _buildStatCard(
-                  title: "تقييم سيء",
+                  title: "يحتاج متابعة",
                   value: "$bad مرات",
-                  subtitle: "يحتاج تشجيع ومتابعة",
+                  subtitle: "يتطلب تكرار وتثبيت",
                   icon: Icons.trending_down_rounded,
                   color: Colors.redAccent,
                 ),
@@ -593,7 +600,6 @@ class _ParentHomePageState extends State<ParentHomePage> {
     final String sessionDate = session['date']?.toString() ?? 'بدون تاريخ';
     final bool isAbsent = session['absent'] ?? false;
     final bool isExam = session['isExam'] ?? false; 
-    final String rating = session['rating'] ?? 'ممتاز';
 
     if (isAbsent) {
       return Container(
@@ -637,16 +643,16 @@ class _ParentHomePageState extends State<ParentHomePage> {
     if (isExam) {
       int score = int.tryParse(session['examScore']?.toString() ?? '0') ?? 0;
       
-      Color mainColor = Colors.green; 
+      Color examMainColor = Colors.green; 
       Color bgColor = Colors.green.shade50;
       Color textColor = Colors.green.shade900; 
 
       if (score >= 0 && score <= 50) {
-        mainColor = Colors.red; 
+        examMainColor = Colors.red; 
         bgColor = Colors.red.shade50;
         textColor = Colors.red.shade900; 
       } else if (score >= 51 && score <= 79) {
-        mainColor = Colors.orange; 
+        examMainColor = Colors.orange; 
         bgColor = Colors.orange.shade50;
         textColor = Colors.orange.shade900; 
       }
@@ -657,7 +663,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border(right: BorderSide(color: mainColor, width: 4)), 
+          border: Border(right: BorderSide(color: examMainColor, width: 4)), 
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
         ),
         child: Column(
@@ -669,8 +675,8 @@ class _ParentHomePageState extends State<ParentHomePage> {
                 Text(sessionDate, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(color: mainColor.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
-                  child: Text("جلسة اختبار 📝", style: TextStyle(color: mainColor, fontWeight: FontWeight.bold, fontSize: 12)),
+                  decoration: BoxDecoration(color: examMainColor.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                  child: Text("جلسة اختبار 📝", style: TextStyle(color: examMainColor, fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
               ],
             ),
@@ -681,12 +687,12 @@ class _ParentHomePageState extends State<ParentHomePage> {
               decoration: BoxDecoration(
                 color: bgColor, 
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: mainColor.withOpacity(0.2), width: 1)
+                border: Border.all(color: examMainColor.withOpacity(0.2), width: 1)
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.workspace_premium, color: mainColor, size: 28),
+                  Icon(Icons.workspace_premium, color: examMainColor, size: 28),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -718,6 +724,12 @@ class _ParentHomePageState extends State<ParentHomePage> {
       );
     }
 
+    String memRating = session['memorizationRating'] ?? session['rating'] ?? "جيد";
+    if (memRating.isEmpty) memRating = "جيد";
+    
+    String revRating = session['reviewRating'] ?? session['rating'] ?? "جيد";
+    if (revRating.isEmpty) revRating = "جيد";
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       padding: const EdgeInsets.all(15),
@@ -734,7 +746,13 @@ class _ParentHomePageState extends State<ParentHomePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(sessionDate, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-              _buildGradeBadge(rating),
+              Row(
+                children: [
+                  _buildGradeBadge("حفظ: $memRating", memRating),
+                  const SizedBox(width: 4),
+                  _buildGradeBadge("مراجعة: $revRating", revRating),
+                ],
+              ),
             ],
           ),
           const Divider(height: 20),
@@ -746,14 +764,15 @@ class _ParentHomePageState extends State<ParentHomePage> {
           const SizedBox(height: 8),
           _buildSessionDetail(Icons.chrome_reader_mode_outlined, "قراءة نظراً:", session['readingBySight'] ?? '---'),
           const SizedBox(height: 8),
-          _buildSessionDetail(Icons.assignment_outlined, "الواجب:", session['homework'] ?? '---'),
+          _buildSessionDetail(Icons.assignment_outlined, "الواجب المعطى:", session['homework'] ?? '---'),
           const SizedBox(height: 8),
           _buildSessionDetail(Icons.emoji_emotions_outlined, "حالة الطالب:", session['studentStatus'] ?? 'مهذب'),
           const SizedBox(height: 8),
-          _buildSessionDetail(Icons.brightness_auto_outlined, "الأنشطة الدينية:", session['religiousActivities'] ?? '---'),
+          _buildSessionDetail(Icons.brightness_auto_outlined, "الأنشطة الدينية بالمسجد:", session['religiousActivities'] ?? '---'),
+          
           if (session['notes'] != null && session['notes'].toString().trim().isNotEmpty) ...[
             const Divider(height: 20),
-            Text("📝 ملاحظة المشرف: ${session['notes']}", style: const TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold)),
+            Text("📝 ملاحظة المشرف للأهل: ${session['notes']}", style: const TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold)),
           ]
         ],
       ),
@@ -772,15 +791,15 @@ class _ParentHomePageState extends State<ParentHomePage> {
     );
   }
 
-  Widget _buildGradeBadge(String rating) {
+  Widget _buildGradeBadge(String label, String ratingValue) {
     Color badgeColor = Colors.green;
-    if (rating == 'جيد جداً' || rating == 'جيد') badgeColor = Colors.orange;
-    if (rating == 'مقبول' || rating == 'ضعيف' || rating == 'سيء') badgeColor = Colors.red;
+    if (ratingValue == 'جيد جداً' || ratingValue == 'جيد') badgeColor = Colors.orange;
+    if (ratingValue == 'مقبول' || ratingValue == 'ضعيف' || ratingValue == 'سيء') badgeColor = Colors.red;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(8)),
-      child: Text(rating, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+      child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
     );
   }
 
