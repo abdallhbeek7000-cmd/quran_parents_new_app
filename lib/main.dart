@@ -44,7 +44,7 @@ void main() async {
       ?.createNotificationChannel(channel);
 
   // إعدادات تهيئة الإشعارات المحلية للأندرويد والأيقونة الرسمية
-  const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/launcher_icon');
   const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
   
   await flutterLocalNotificationsPlugin.initialize(
@@ -92,7 +92,7 @@ class _MyAppState extends State<MyApp> {
               channel.id,
               channel.name,
               channelDescription: channel.description,
-              icon: '@mipmap/ic_launcher',
+              icon: '@mipmap/launcher_icon',
               importance: Importance.max,
               priority: Priority.high,
               playSound: true,

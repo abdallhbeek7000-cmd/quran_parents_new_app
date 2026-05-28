@@ -30,6 +30,13 @@ class _ParentHomePageState extends State<ParentHomePage> {
   @override
   void initState() {
     super.initState();
+    // 🎯 طلب الإذن هنا مرة واحدة فقط وبشكل صحيح
+    FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
     _loadHonorBoardAndImages();
     _saveDeviceToken(); 
     
@@ -38,24 +45,17 @@ class _ParentHomePageState extends State<ParentHomePage> {
     });
   }
 
+  // 🎯 تنظيف دالة التوكن من التكرار
   void _saveDeviceToken() async {
     try {
-      NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        String? token = await FirebaseMessaging.instance.getToken();
-        
-        if (token != null) {
-          await FirebaseFirestore.instance
-              .collection('students')
-              .doc(widget.student.id)
-              .update({'fcmToken': token});
-          print("FCM Token saved successfully: $token ✅");
-        }
+      String? token = await FirebaseMessaging.instance.getToken();
+      
+      if (token != null) {
+        await FirebaseFirestore.instance
+            .collection('students')
+            .doc(widget.student.id)
+            .update({'fcmToken': token});
+        print("FCM Token saved successfully: $token ✅");
       }
     } catch (e) {
       print("Error saving FCM token: $e");
