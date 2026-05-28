@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart'; 
 import 'login_page.dart';
 import 'update_checker.dart'; 
+import 'notifications_page.dart'; // 🎯 استيراد صفحة مركز التنبيهات الجديدة
 
 class ParentHomePage extends StatefulWidget {
   final DocumentSnapshot student;
@@ -127,6 +128,18 @@ class _ParentHomePageState extends State<ParentHomePage> {
         centerTitle: true,
         actions: [
           IconButton(
+            icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
+            tooltip: 'مركز التنبيهات',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NotificationsPage(studentId: studentId),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.white),
             tooltip: 'تسجيل الخروج',
             onPressed: () => _showLogoutDialog(),
@@ -155,14 +168,12 @@ class _ParentHomePageState extends State<ParentHomePage> {
               var sData = doc.data() as Map<String, dynamic>;
               bool isAbsent = sData['absent'] ?? false;
               
-              // 📊 قراءة ذكية وشاملة للتقييمات المحدثة لضمان دقة الإحصائية للأهل
               String memRating = sData['memorizationRating']?.toString() ?? sData['rating']?.toString() ?? '';
               String revRating = sData['reviewRating']?.toString() ?? sData['rating']?.toString() ?? '';
 
               if (isAbsent) {
                 absentCount++;
               } else {
-                // الفحص والاحتساب الذكي (إذا كان الحفظ أو المراجعة متميز ينحسب بـ خانته فوراً)
                 if (memRating == 'ممتاز' || memRating == 'جيد جداً' || revRating == 'ممتاز' || revRating == 'جيد جداً') {
                   excellentCount++;
                 } else if (memRating == 'جيد' || memRating == 'مقبول' || revRating == 'جيد' || revRating == 'مقبول') {
@@ -170,7 +181,6 @@ class _ParentHomePageState extends State<ParentHomePage> {
                 } else if (memRating == 'سيء' || memRating == 'ضعيف' || revRating == 'سيء' || revRating == 'ضعيف') {
                   badCount++;
                 } else {
-                  // حماية افتراضية في حال وجود بيانات قديمة
                   goodCount++;
                 }
               }
@@ -186,9 +196,8 @@ class _ParentHomePageState extends State<ParentHomePage> {
 
           int presentCount = totalSessions - absentCount;
 
-          // 🎯 التوجيه والتقسيم الذكي للأقسام (تم إصلاح ربط متغيرات الحساب هنا بالملي!)
           switch (_currentTabIndex) {
-            case 0: // 📊 قسم الخلاصة والإحصائيات (يعمل لايف 100%)
+            case 0: 
               return RefreshIndicator(
                 onRefresh: () async => setState(() {}),
                 child: SingleChildScrollView(
@@ -199,10 +208,9 @@ class _ParentHomePageState extends State<ParentHomePage> {
                       _buildProfileCard(data),
                       _buildQuranProgressSection(sessionSnapshot),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        child: Text("📊 الملخص العام لأداء الطالب", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Cairo', color: primaryColor)),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        child: Text("📊 لوحة الأداء والإحصائيات الحية", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Cairo', color: primaryColor)),
                       ),
-                      // تمرير المتغيرات المحسوبة بشكل مباشر لايف للواجهة لمنع ظهور الأصفار
                       _buildParentStatsDashboard(
                         total: totalSessions,
                         present: presentCount,
@@ -217,7 +225,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
                 ),
               );
               
-            case 1: // 📖 قسم سجل الجلسات واليوميات الشامل
+            case 1: 
               return sessionSnapshot.connectionState == ConnectionState.waiting
                   ? const Center(child: CircularProgressIndicator())
                   : sortedDocs.isEmpty
@@ -232,7 +240,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
                           },
                         );
                         
-            case 2: // 🏆 قسم لوحة الشرف والأنشطة
+            case 2: 
               return SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 child: Column(
@@ -393,6 +401,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
     );
   }
 
+  // 🎯 الدالة المحدثة كلياً بشكل ملوكي وبصري متطور للغاية
   Widget _buildParentStatsDashboard({
     required int total,
     required int present,
@@ -401,60 +410,150 @@ class _ParentHomePageState extends State<ParentHomePage> {
     required int good,
     required int bad,
   }) {
+    // حساب النسب المئوية أوتوماتيكياً للعرض الدائري الذكي
+    double attendanceRate = total > 0 ? (present / total) : 0.0;
+    double excellentRate = present > 0 ? (excellent / present) : 0.0;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
+          // 🥇 الصف الأول: الأقراص الدائرية لنسب الإنجاز الحية
           Row(
             children: [
               Expanded(
-                child: _buildStatCard(
-                  title: "الحضور والالتزام",
-                  value: "$present من أصل $total",
-                  subtitle: "جلسة حلقة حية",
-                  icon: Icons.check_circle_rounded,
-                  color: Colors.green,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 12, offset: const Offset(0, 4))],
+                  ),
+                  child: Row(
+                    children: [
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          SizedBox(
+                            width: 55,
+                            height: 55,
+                            child: CircularProgressIndicator(
+                              value: attendanceRate,
+                              strokeWidth: 5,
+                              backgroundColor: Colors.green.shade50,
+                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+                            ),
+                          ),
+                          Text("${(attendanceRate * 100).toStringAsFixed(0)}%", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("نسبة الالتزام", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: Colors.black87)),
+                            Text("$present من أصل $total جلسة", style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontFamily: 'Cairo')),
+                          ],
+                        ),
+                      )
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(width: 12),
               Expanded(
-                child: _buildStatCard(
-                  title: "أيام الغياب",
-                  value: "$absent جلسات",
-                  subtitle: absent >= 3 ? "تنبيه غياب متكرر! ⚠️" : "ضمن الحد الطبيعي",
-                  icon: Icons.cancel_rounded,
-                  color: absent >= 3 ? Colors.red : Colors.grey,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 12, offset: const Offset(0, 4))],
+                  ),
+                  child: Row(
+                    children: [
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          SizedBox(
+                            width: 55,
+                            height: 55,
+                            child: CircularProgressIndicator(
+                              value: excellentRate,
+                              strokeWidth: 5,
+                              backgroundColor: const Color(0xfffef9e7),
+                              valueColor: AlwaysStoppedAnimation<Color>(goldColor),
+                            ),
+                          ),
+                          Icon(Icons.workspace_premium_rounded, size: 20, color: goldColor),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("التميز والاتقان", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: Colors.black87)),
+                            Text("$excellent مرات متميزة", style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontFamily: 'Cairo')),
+                          ],
+                        ),
+                      )
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 2),
+          
+          const SizedBox(height: 12),
+          
+          // 🥈 الصف الثاني: شبكة تفصيلية ملوكية مبهجة للعين تفصل التقييمات والغياب
           Row(
             children: [
               Expanded(
-                child: _buildStatCard(
-                  title: "مستوى ممتاز",
-                  value: "$excellent مرات",
-                  subtitle: "حفظ متقن ومميز 🌟",
-                  icon: Icons.workspace_premium_rounded,
-                  color: const Color(0xffD4AF37),
+                child: _buildModernStatMiniCard(
+                  title: "المستوى المتميز",
+                  value: "$excellent",
+                  icon: Icons.auto_awesome_rounded,
+                  baseColor: goldColor,
+                  bgGradientColor: const Color(0xfffdfaf0),
                 ),
               ),
+              const SizedBox(width: 10),
               Expanded(
-                child: _buildStatCard(
-                  title: "مستوى جيد",
-                  value: "$good مرات",
-                  subtitle: "أداء مستقر وثابت",
-                  icon: Icons.thumb_up_rounded, 
-                  color: Colors.blue,
+                child: _buildModernStatMiniCard(
+                  title: "المستوى المستقر",
+                  value: "$good",
+                  icon: Icons.thumb_up_alt_rounded,
+                  baseColor: Colors.blue.shade600,
+                  bgGradientColor: const Color(0xfff4f9ff),
                 ),
               ),
+            ],
+          ),
+          
+          const SizedBox(height: 10),
+          
+          Row(
+            children: [
               Expanded(
-                child: _buildStatCard(
-                  title: "يحتاج متابعة",
-                  value: "$bad مرات",
-                  subtitle: "يتطلب تكرار وتثبيت",
+                child: _buildModernStatMiniCard(
+                  title: "يحتاج متابعة وتكرار",
+                  value: "$bad",
                   icon: Icons.trending_down_rounded,
-                  color: Colors.redAccent,
+                  baseColor: Colors.redAccent.shade400,
+                  bgGradientColor: const Color(0xfffff5f5),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildModernStatMiniCard(
+                  title: "جلسات الغياب",
+                  value: "$absent",
+                  icon: Icons.cancel_presentation_rounded,
+                  baseColor: absent >= 3 ? Colors.red : Colors.grey.shade600,
+                  bgGradientColor: absent >= 3 ? const Color(0xfffdf2f2) : const Color(0xfff8fafc),
+                  badgeText: absent >= 3 ? "تنبيه غياب! ⚠️" : null,
                 ),
               ),
             ],
@@ -464,20 +563,21 @@ class _ParentHomePageState extends State<ParentHomePage> {
     );
   }
 
-  Widget _buildStatCard({
+  // 🎨 دالة ذكية لبناء كروت الواجهة المحدثة بلمسات جمالية رقيقة
+  Widget _buildModernStatMiniCard({
     required String title,
     required String value,
-    required String subtitle,
     required IconData icon,
-    required Color color,
+    required Color baseColor,
+    required Color bgGradientColor,
+    String? badgeText,
   }) {
     return Container(
-      margin: const EdgeInsets.all(5),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 2))],
+        color: bgGradientColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: baseColor.withOpacity(0.12), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -485,14 +585,23 @@ class _ParentHomePageState extends State<ParentHomePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600, fontFamily: 'Cairo')),
-              Icon(icon, color: color.withOpacity(0.8), size: 15),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(color: baseColor.withOpacity(0.1), shape: BoxShape.circle),
+                child: Icon(icon, color: baseColor, size: 18),
+              ),
+              if (badgeText != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)),
+                  child: Text(badgeText, style: const TextStyle(color: Colors.white, fontSize: 8, fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+                ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryColor, fontFamily: 'Cairo')),
+          const SizedBox(height: 12),
+          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: primaryColor, fontFamily: 'Cairo', height: 1)),
           const SizedBox(height: 2),
-          Text(subtitle, style: TextStyle(fontSize: 9, color: color == Colors.red ? Colors.red : Colors.grey[500], fontWeight: FontWeight.w500, fontFamily: 'Cairo')),
+          Text(title, style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontFamily: 'Cairo')),
         ],
       ),
     );
@@ -718,7 +827,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildMinimalistDetailRow(Icons.person_outline_rounded, "المشرف المسجِّل", supervisorName, isBold: true),
+                  _buildMinimalistDetailRow(Icons.person_outline_rounded, "المشرف المسجِّل", supervisorName, isBold: true),
                   const SizedBox(height: 10),
                   _buildMinimalistDetailRow(Icons.warning_amber_rounded, "نوع الغياب", session['absenceType'] == "" ? "بدون عذر" : (session['absenceType'] ?? 'بدون عذر')),
                   if (session['absenceReason'] != null && session['absenceReason'].toString().trim().isNotEmpty) ...[
@@ -769,7 +878,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildMinimalistDetailRow(Icons.person_outline_rounded, "المشرف المسجِّل", supervisorName, isBold: true),
+                  _buildMinimalistDetailRow(Icons.person_outline_rounded, "المشرف المسجِّل", supervisorName, isBold: true),
                   const SizedBox(height: 15),
                   Container(
                     padding: const EdgeInsets.all(14),
