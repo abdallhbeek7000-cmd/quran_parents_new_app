@@ -26,6 +26,10 @@ class _ParentHomePageState extends State<ParentHomePage> {
   final Color accentGold = const Color(0xffd4af37); 
 
   int _currentTabIndex = 0; 
+  
+  // 🎯 متغيرات سحب الفقاعة الزجاجية السائلة
+  double? _dragPosition;
+  bool _isDragging = false;
 
   List<Map<String, dynamic>> allWinners = [];
   Map<String, String> studentImagesCache = {};
@@ -57,7 +61,6 @@ class _ParentHomePageState extends State<ParentHomePage> {
             .collection('students')
             .doc(widget.student.id)
             .update({'fcmToken': token});
-        print("FCM Token saved successfully: $token ✅");
       }
     } catch (e) {
       print("Error saving FCM token: $e");
@@ -121,7 +124,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
 
     return Scaffold(
       extendBodyBehindAppBar: true, 
-      extendBody: true, // 🎯 ضرورية لحركة الشريط العائم
+      extendBody: true, 
       backgroundColor: isDarkMode ? const Color(0xff121212) : const Color(0xfff1f5f9),
       appBar: AppBar(
         elevation: 0,
@@ -245,7 +248,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
                       onRefresh: () async => setState(() {}),
                       child: SingleChildScrollView(
                         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                        padding: const EdgeInsets.only(bottom: 120), // 🎯 بادينغ إضافي للشريط العائم
+                        padding: const EdgeInsets.only(bottom: 120),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -277,7 +280,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
                             ? Center(child: _buildGlassContainer(isDarkMode: isDarkMode, padding: const EdgeInsets.all(20), child: Text("لا يوجد جلسات مسجلة بعد لهذا الطالب", style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.grey[600], fontFamily: 'Cairo', fontSize: 14))))
                             : ListView.builder(
                                 physics: const BouncingScrollPhysics(),
-                                padding: const EdgeInsets.only(top: 10, bottom: 120), // 🎯 بادينغ إضافي
+                                padding: const EdgeInsets.only(top: 10, bottom: 120),
                                 itemCount: sortedDocs.length,
                                 itemBuilder: (context, index) {
                                   var session = sortedDocs[index].data() as Map<String, dynamic>;
@@ -288,7 +291,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
                   case 2: 
                     return SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.only(bottom: 120), // 🎯 بادينغ إضافي
+                      padding: const EdgeInsets.only(bottom: 120),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -330,79 +333,132 @@ class _ParentHomePageState extends State<ParentHomePage> {
             ),
           ),
 
-          // 🚀 3. شريط التنقل الزجاجي العائم مع تأثير الفقاعة السائلة (Liquid Bubble Effect)
-          _buildFloatingLiquidNavBar(isDarkMode),
+          // 🚀 3. شريط التنقل الزجاجي التفاعلي القابل للسحب (Drag-to-Snap Liquid Glass)
+          _buildDraggableLiquidNavBar(isDarkMode),
         ],
       ),
     );
   }
 
-  // 🧊 دالة بناء شريط التنقل الزجاجي العائم والسائل
-  Widget _buildFloatingLiquidNavBar(bool isDarkMode) {
+  // 🧊 دالة بناء الشريط الزجاجي التفاعلي بالسحب
+  Widget _buildDraggableLiquidNavBar(bool isDarkMode) {
     return Positioned(
       bottom: 25,
       left: 20,
       right: 20,
+      height: 70,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(35),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), // تضبيب خفيف للشريط نفسه
           child: Container(
-            height: 70,
             decoration: BoxDecoration(
-              color: isDarkMode ? Colors.black.withOpacity(0.5) : Colors.white.withOpacity(0.85),
+              color: isDarkMode ? Colors.black.withOpacity(0.35) : Colors.white.withOpacity(0.4),
               borderRadius: BorderRadius.circular(35),
-              border: Border.all(color: isDarkMode ? Colors.white12 : Colors.white, width: 1.5),
+              border: Border.all(color: isDarkMode ? Colors.white12 : Colors.white.withOpacity(0.6), width: 1.5),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1), 
-                  blurRadius: 20, 
+                  color: Colors.black.withOpacity(isDarkMode ? 0.4 : 0.05),
+                  blurRadius: 20,
                   offset: const Offset(0, 10),
-                )
+                ),
               ],
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final itemWidth = constraints.maxWidth / 3;
-                return Stack(
-                  children: [
-                    // 💧 الفقاعة السائلة المتحركة (Liquid Bubble)
-                    AnimatedPositionedDirectional(
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeOutBack, // حركة سائلة مرنة (Bounce خفيف)
-                      start: _currentTabIndex * itemWidth,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: itemWidth,
-                        alignment: Alignment.center,
+                
+                // حساب المركز الأقرب ليتم تلوين الأيقونة بذكاء أثناء السحب
+                int closestIndex = _currentTabIndex;
+                if (_isDragging && _dragPosition != null) {
+                  closestIndex = ((_dragPosition! + (itemWidth / 2)) / itemWidth).round().clamp(0, 2);
+                }
+
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragStart: (details) {
+                    setState(() => _isDragging = true);
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    bool isRtl = Directionality.of(context) == TextDirection.rtl;
+                    setState(() {
+                      if (isRtl) {
+                        _dragPosition = constraints.maxWidth - details.localPosition.dx - (itemWidth / 2);
+                      } else {
+                        _dragPosition = details.localPosition.dx - (itemWidth / 2);
+                      }
+                    });
+                  },
+                  onHorizontalDragEnd: (details) {
+                    setState(() {
+                      _isDragging = false;
+                      if (_dragPosition != null) {
+                        int newIndex = ((_dragPosition! + (itemWidth / 2)) / itemWidth).round().clamp(0, 2);
+                        _currentTabIndex = newIndex;
+                      }
+                      _dragPosition = null;
+                    });
+                  },
+                  onTapUp: (details) {
+                    bool isRtl = Directionality.of(context) == TextDirection.rtl;
+                    double tapPos = isRtl ? constraints.maxWidth - details.localPosition.dx : details.localPosition.dx;
+                    int newIndex = (tapPos / itemWidth).floor().clamp(0, 2);
+                    setState(() {
+                      _currentTabIndex = newIndex;
+                    });
+                  },
+                  child: Stack(
+                    children: [
+                      // 💧 الفقاعة الزجاجية السائلة المكثفة (Heavy Glass Bubble)
+                      AnimatedPositionedDirectional(
+                        duration: _isDragging ? Duration.zero : const Duration(milliseconds: 350),
+                        curve: _isDragging ? Curves.linear : Curves.easeOutBack, // سائلة عند الفلتان
+                        start: _isDragging && _dragPosition != null 
+                            ? _dragPosition!.clamp(0.0, constraints.maxWidth - itemWidth)
+                            : _currentTabIndex * itemWidth,
+                        top: 0,
+                        bottom: 0,
                         child: Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: isDarkMode ? accentGold : primaryColor,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: (isDarkMode ? accentGold : primaryColor).withOpacity(0.4),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              )
-                            ]
+                          width: itemWidth,
+                          alignment: Alignment.center,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(30),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25), // 🎯 تضبيب مضاعف جداً للفقاعة
+                              child: Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isDarkMode ? Colors.white.withOpacity(0.15) : primaryColor.withOpacity(0.6),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.9), 
+                                    width: 1.5,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (isDarkMode ? accentGold : primaryColor).withOpacity(0.4),
+                                      blurRadius: 15,
+                                      spreadRadius: 1,
+                                    )
+                                  ]
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    
-                    // 🧩 أيقونات التنقل
-                    Row(
-                      children: [
-                        _buildNavItem(0, Icons.analytics_outlined, Icons.analytics_rounded, 'الخلاصة', itemWidth, isDarkMode),
-                        _buildNavItem(1, Icons.history_edu_outlined, Icons.history_edu_rounded, 'السجل', itemWidth, isDarkMode),
-                        _buildNavItem(2, Icons.stars_outlined, Icons.stars_rounded, 'التميز', itemWidth, isDarkMode),
-                      ],
-                    ),
-                  ],
+                      
+                      // 🧩 الأيقونات (مرتفعة فوق الزجاج لتظل واضحة وتتفاعل مع السحب)
+                      Row(
+                        children: [
+                          _buildNavItem(0, Icons.analytics_outlined, Icons.analytics_rounded, 'الخلاصة', itemWidth, isDarkMode, closestIndex),
+                          _buildNavItem(1, Icons.history_edu_outlined, Icons.history_edu_rounded, 'السجل', itemWidth, isDarkMode, closestIndex),
+                          _buildNavItem(2, Icons.stars_outlined, Icons.stars_rounded, 'التميز', itemWidth, isDarkMode, closestIndex),
+                        ],
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -412,41 +468,33 @@ class _ParentHomePageState extends State<ParentHomePage> {
     );
   }
 
-  // 🧩 دالة بناء أيقونة التنقل وتأثير اختفاء/ظهور النص
-  Widget _buildNavItem(int index, IconData outlineIcon, IconData filledIcon, String label, double width, bool isDarkMode) {
-    final isSelected = _currentTabIndex == index;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _currentTabIndex = index;
-        });
-      },
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: width,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
-          child: isSelected
-              ? Icon(
-                  filledIcon,
-                  key: ValueKey('icon_selected_$index'),
-                  color: Colors.white, // الأيقونة المحددة بداخل الفقاعة تكون بيضاء
-                  size: 26,
-                )
-              : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  key: ValueKey('icon_unselected_$index'),
-                  children: [
-                    Icon(outlineIcon, color: isDarkMode ? Colors.white54 : Colors.grey.shade500, size: 24),
-                    const SizedBox(height: 2),
-                    Text(
-                      label, 
-                      style: TextStyle(color: isDarkMode ? Colors.white54 : Colors.grey.shade600, fontSize: 11, fontFamily: 'Cairo', fontWeight: FontWeight.bold)
-                    ),
-                  ],
-                ),
-        ),
+  // 🧩 بناء أيقونات التنقل وتغيير اللون بذكاء حسب قرب الفقاعة منها
+  Widget _buildNavItem(int index, IconData outlineIcon, IconData filledIcon, String label, double width, bool isDarkMode, int closestIndex) {
+    final isHovered = closestIndex == index;
+    return SizedBox(
+      width: width,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: FadeTransition(opacity: anim, child: child)),
+        child: isHovered
+            ? Icon(
+                filledIcon,
+                key: ValueKey('icon_selected_$index'),
+                color: Colors.white, // الأيقونة بتصير بيضاء وواضحة جداً لما تمرق الفقاعة فوقها
+                size: 28,
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                key: ValueKey('icon_unselected_$index'),
+                children: [
+                  Icon(outlineIcon, color: isDarkMode ? Colors.white54 : primaryColor.withOpacity(0.5), size: 24),
+                  const SizedBox(height: 2),
+                  Text(
+                    label, 
+                    style: TextStyle(color: isDarkMode ? Colors.white54 : primaryColor.withOpacity(0.7), fontSize: 10, fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
       ),
     );
   }
