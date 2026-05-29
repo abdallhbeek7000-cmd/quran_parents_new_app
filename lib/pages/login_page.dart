@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui'; // 🎯 ضرورية لتأثير الزجاج البلوري (Blur)
 import 'dart:math' as math; // 🎯 ضروري لحسابات رسم الزخارف الهندسية بالخلفية
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -208,7 +209,7 @@ class _LoginPageState extends State<LoginPage> {
           Positioned.fill(
             child: CustomPaint(
               painter: IslamicPatternPainter(
-                color: primaryColor.withOpacity(0.015), // هادئة جداً لمنع تشتيت العين
+                color: primaryColor.withOpacity(0.025), // هادئة جداً لمنع تشتيت العين
               ),
             ),
           ),
@@ -219,7 +220,7 @@ class _LoginPageState extends State<LoginPage> {
             left: -50,
             child: CircleAvatar(
               radius: 130,
-              backgroundColor: primaryColor.withOpacity(0.03),
+              backgroundColor: primaryColor.withOpacity(0.06),
             ),
           ),
           Positioned(
@@ -227,11 +228,11 @@ class _LoginPageState extends State<LoginPage> {
             right: -60,
             child: CircleAvatar(
               radius: 150,
-              backgroundColor: goldColor.withOpacity(0.03),
+              backgroundColor: goldColor.withOpacity(0.06),
             ),
           ),
 
-          // 🔐 4. كرت التسجيل والهوية الرقمية بالمنتصف
+          // 🔐 4. كرت التسجيل والهوية الرقمية بالمنتصف (بستايل Liquid Glass)
           Center(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -239,16 +240,16 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // رمز المعهد الفخم بهالة دائرية مزدوجة مع تطعيم ذهبي راقٍ
+                  // رمز المعهد الفخم
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Colors.white.withOpacity(0.8),
                       shape: BoxShape.circle,
-                      border: Border.all(color: goldColor.withOpacity(0.15), width: 1.5),
+                      border: Border.all(color: goldColor.withOpacity(0.3), width: 1.5),
                       boxShadow: [
                         BoxShadow(
-                          color: primaryColor.withOpacity(0.05),
+                          color: primaryColor.withOpacity(0.08),
                           blurRadius: 25,
                           offset: const Offset(0, 10),
                         )
@@ -258,14 +259,14 @@ class _LoginPageState extends State<LoginPage> {
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: primaryColor.withOpacity(0.1), width: 1),
+                        border: Border.all(color: primaryColor.withOpacity(0.15), width: 1),
                       ),
                       child: Icon(Icons.menu_book_rounded, size: 54, color: primaryColor),
                     ),
                   ),
                   const SizedBox(height: 24),
                   
-                  // تدرج لوني انسيابي فخم لاسم البوابة (Gradient Shader)
+                  // تدرج لوني انسيابي فخم لاسم البوابة
                   ShaderMask(
                     shaderCallback: (bounds) => LinearGradient(
                       colors: [primaryColor, const Color(0xff5f7d9a)],
@@ -285,104 +286,105 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 40),
 
-                  // 💳 كرت الدخول المطور بحواف ذهبية انسيابية ناعمة جدًا وظلال عائمة
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(26),
-                      border: Border.all(color: goldColor.withOpacity(0.1), width: 1.2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: primaryColor.withOpacity(0.04),
-                          blurRadius: 25,
-                          offset: const Offset(0, 12),
+                  // 💳 كرت الدخول المطور بستايل الزجاج (Glassmorphism)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(30),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.4), // شفافية الكرت
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(color: Colors.white.withOpacity(0.7), width: 1.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 25,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
                         ),
-                        BoxShadow(
-                          color: goldColor.withOpacity(0.02),
-                          blurRadius: 15,
-                          offset: const Offset(0, -5),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "أهلاً بك 👋",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor, fontFamily: 'Cairo'),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "سجل دخولك برقم الطالب وهاتفكم للمتابعة",
-                          style: TextStyle(color: Colors.grey.shade500, fontSize: 11.5, fontFamily: 'Cairo', fontWeight: FontWeight.w500),
-                        ),
-                        const SizedBox(height: 25),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "أهلاً بك 👋",
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor, fontFamily: 'Cairo'),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "سجل دخولك برقم الطالب وهاتفكم للمتابعة",
+                              style: TextStyle(color: Colors.grey.shade700, fontSize: 11.5, fontFamily: 'Cairo', fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 25),
 
-                        // حقل الرقم التسلسلي المودرن بخلفية ناعمة وحواف انسيابية
-                        TextField(
-                          controller: _serialController,
-                          keyboardType: TextInputType.number,
-                          style: TextStyle(fontFamily: 'Cairo', fontSize: 13.5, color: primaryColor, fontWeight: FontWeight.bold),
-                          decoration: _buildInputDecoration(
-                            label: 'الرقم التسلسلي للطالب',
-                            icon: Icons.pin_rounded,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // حقل رقم الهاتف المودرن
-                        TextField(
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          style: TextStyle(fontFamily: 'Cairo', fontSize: 13.5, color: primaryColor, fontWeight: FontWeight.bold),
-                          decoration: _buildInputDecoration(
-                            label: 'رقم هاتف ولي الأمر المسجل لدينا',
-                            icon: Icons.phone_android_rounded,
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        
-                        // زر الدخول والمتابعة بـ الستايل العائم ذو التأثير البصري الراقي
-                        Container(
-                          width: double.infinity,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [primaryColor, const Color(0xff2f4356)],
-                              begin: Alignment.topRight,
-                              end: Alignment.bottomLeft,
+                            // حقل الرقم التسلسلي الزجاجي
+                            TextField(
+                              controller: _serialController,
+                              keyboardType: TextInputType.number,
+                              style: TextStyle(fontFamily: 'Cairo', fontSize: 14, color: primaryColor, fontWeight: FontWeight.bold),
+                              decoration: _buildGlassInputDecoration(
+                                label: 'الرقم التسلسلي للطالب',
+                                icon: Icons.pin_rounded,
+                              ),
                             ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: primaryColor.withOpacity(0.25),
-                                blurRadius: 15,
-                                offset: const Offset(0, 6),
-                              )
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _login,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent, // تفعيل التدرج اللوني للخلفية بالشفافية
-                              shadowColor: Colors.transparent,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            const SizedBox(height: 16),
+                            
+                            // حقل رقم الهاتف الزجاجي
+                            TextField(
+                              controller: _phoneController,
+                              keyboardType: TextInputType.phone,
+                              style: TextStyle(fontFamily: 'Cairo', fontSize: 14, color: primaryColor, fontWeight: FontWeight.bold),
+                              decoration: _buildGlassInputDecoration(
+                                label: 'رقم هاتف ولي الأمر المسجل لدينا',
+                                icon: Icons.phone_android_rounded,
+                              ),
                             ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
+                            const SizedBox(height: 28),
+                            
+                            // زر الدخول والمتابعة بـ الستايل العائم ذو التأثير البصري الراقي
+                            Container(
+                              width: double.infinity,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [primaryColor, const Color(0xff2f4356)],
+                                  begin: Alignment.topRight,
+                                  end: Alignment.bottomLeft,
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: primaryColor.withOpacity(0.3),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 6),
                                   )
-                                : const Text(
-                                    'دخول ومتابعة', 
-                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: Colors.white),
-                                  ),
-                          ),
+                                ],
+                              ),
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _login,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.transparent, 
+                                  shadowColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                ),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
+                                      )
+                                    : const Text(
+                                        'دخول ومتابعة', 
+                                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: Colors.white, letterSpacing: 0.5),
+                                      ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 30),
@@ -395,26 +397,26 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // دالة بناء التنسيق الفخم لحقول الإدخال
-  InputDecoration _buildInputDecoration({required String label, required IconData icon}) {
+  // دالة بناء التنسيق الزجاجي الفخم لحقول الإدخال
+  InputDecoration _buildGlassInputDecoration({required String label, required IconData icon}) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: Colors.grey.shade500, fontSize: 11.5, fontFamily: 'Cairo', fontWeight: FontWeight.w600),
-      prefixIcon: Icon(icon, color: primaryColor.withOpacity(0.7), size: 17),
+      labelStyle: TextStyle(color: primaryColor.withOpacity(0.7), fontSize: 12, fontFamily: 'Cairo', fontWeight: FontWeight.w600),
+      prefixIcon: Icon(icon, color: primaryColor.withOpacity(0.8), size: 18),
       filled: true,
-      fillColor: const Color(0xfff8fafc),
-      contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 16),
+      fillColor: Colors.white.withOpacity(0.55), // شفافية الحقل لتلائم الزجاج
+      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Colors.grey.shade100, width: 1),
+        borderSide: BorderSide(color: Colors.white.withOpacity(0.8), width: 1.2),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: primaryColor.withOpacity(0.4), width: 1.5),
+        borderSide: BorderSide(color: goldColor.withOpacity(0.8), width: 1.5),
       ),
     );
   }

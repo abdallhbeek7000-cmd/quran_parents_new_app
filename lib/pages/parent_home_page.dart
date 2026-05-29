@@ -1,12 +1,15 @@
-import 'dart:io'; 
+import 'dart:io';
+import 'dart:ui'; // 🎯 ضرورية لتأثير الزجاج (Blur)
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart'; 
+import 'package:provider/provider.dart'; // 🎯 لقراءة المظهر
+import '../services/theme_provider.dart'; // 🎯 استدعاء الـ ThemeProvider
 import 'login_page.dart';
 import 'update_checker.dart'; 
-import 'notifications_page.dart'; // 🎯 استيراد صفحة مركز التنبيهات الجديدة
+import 'notifications_page.dart'; 
 
 class ParentHomePage extends StatefulWidget {
   final DocumentSnapshot student;
@@ -20,6 +23,7 @@ class ParentHomePage extends StatefulWidget {
 class _ParentHomePageState extends State<ParentHomePage> {
   final Color primaryColor = const Color(0xff425c75);
   final Color goldColor = const Color(0xffD4AF37);
+  final Color accentGold = const Color(0xffd4af37); // 🎯 تم إضافة تعريف اللون هنا لإزالة الخطأ
 
   int _currentTabIndex = 0; 
 
@@ -30,7 +34,6 @@ class _ParentHomePageState extends State<ParentHomePage> {
   @override
   void initState() {
     super.initState();
-    // 🎯 طلب الإذن هنا مرة واحدة فقط وبشكل صحيح
     FirebaseMessaging.instance.requestPermission(
       alert: true,
       badge: true,
@@ -45,7 +48,6 @@ class _ParentHomePageState extends State<ParentHomePage> {
     });
   }
 
-  // 🎯 تنظيف دالة التوكن من التكرار
   void _saveDeviceToken() async {
     try {
       String? token = await FirebaseMessaging.instance.getToken();
@@ -115,20 +117,23 @@ class _ParentHomePageState extends State<ParentHomePage> {
     final String studentName = data['name'] ?? 'الطالب';
     final String serialStr = data['serial']?.toString() ?? '';
     final bool isCompletedStudent = data['studentType'] == 'completed';
+    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
 
     return Scaffold(
-      backgroundColor: const Color(0xfff8fafc), 
+      extendBodyBehindAppBar: true, 
+      extendBody: true, 
+      backgroundColor: isDarkMode ? const Color(0xff121212) : const Color(0xfff1f5f9),
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: primaryColor,
+        backgroundColor: Colors.transparent, 
         title: Text(
           _getAppBarTitle(_currentTabIndex, studentName), 
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16, fontFamily: 'Cairo'),
+          style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontSize: 16, fontFamily: 'Cairo'),
         ),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
+            icon: Icon(Icons.notifications_none_rounded, color: isDarkMode ? goldColor : primaryColor),
             tooltip: 'مركز التنبيهات',
             onPressed: () {
               Navigator.push(
@@ -140,186 +145,237 @@ class _ParentHomePageState extends State<ParentHomePage> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Colors.white),
+            icon: Icon(Icons.logout_rounded, color: isDarkMode ? Colors.redAccent : Colors.red),
             tooltip: 'تسجيل الخروج',
-            onPressed: () => _showLogoutDialog(),
+            onPressed: () => _showLogoutDialog(isDarkMode),
           ),
         ],
       ),
       
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('sessions')
-            .where('studentId', isEqualTo: studentId)
-            .snapshots(),
-        builder: (context, sessionSnapshot) {
-          int totalSessions = 0;
-          int absentCount = 0;
-          int excellentCount = 0;
-          int goodCount = 0;
-          int badCount = 0;
-          List<QueryDocumentSnapshot> sortedDocs = [];
+      body: Stack(
+        children: [
+          // 🎨 1. الخلفية الانسيابية مع الدوائر العائمة
+          Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isDarkMode
+                    ? [const Color(0xff0f172a), const Color(0xff1e293b), const Color(0xff0f172a)]
+                    : [const Color(0xffe2e8f0), const Color(0xffcfdef3), const Color(0xffe0eafc)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          Positioned(
+            top: -20,
+            left: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: isDarkMode ? goldColor.withOpacity(0.08) : goldColor.withOpacity(0.12)),
+            ),
+          ),
+          Positioned(
+            bottom: 100,
+            right: -60,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: isDarkMode ? primaryColor.withOpacity(0.15) : primaryColor.withOpacity(0.2)),
+            ),
+          ),
 
-          if (sessionSnapshot.hasData) {
-            var docs = sessionSnapshot.data!.docs;
-            totalSessions = docs.length;
-            
-            for (var doc in docs) {
-              var sData = doc.data() as Map<String, dynamic>;
-              bool isAbsent = sData['absent'] ?? false;
-              
-              String memRating = sData['memorizationRating']?.toString() ?? sData['rating']?.toString() ?? '';
-              String revRating = sData['reviewRating']?.toString() ?? sData['rating']?.toString() ?? '';
+          // 🏢 2. المحتوى الأساسي للواجهة
+          SafeArea(
+            bottom: false,
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('sessions')
+                  .where('studentId', isEqualTo: studentId)
+                  .snapshots(),
+              builder: (context, sessionSnapshot) {
+                int totalSessions = 0;
+                int absentCount = 0;
+                int excellentCount = 0;
+                int goodCount = 0;
+                int badCount = 0;
+                List<QueryDocumentSnapshot> sortedDocs = [];
 
-              if (isAbsent) {
-                absentCount++;
-              } else {
-                if (memRating == 'ممتاز' || memRating == 'جيد جداً' || revRating == 'ممتاز' || revRating == 'جيد جداً') {
-                  excellentCount++;
-                } else if (memRating == 'جيد' || memRating == 'مقبول' || revRating == 'جيد' || revRating == 'مقبول') {
-                  goodCount++;
-                } else if (memRating == 'سيء' || memRating == 'ضعيف' || revRating == 'سيء' || revRating == 'ضعيف') {
-                  badCount++;
-                } else {
-                  goodCount++;
+                if (sessionSnapshot.hasData) {
+                  var docs = sessionSnapshot.data!.docs;
+                  totalSessions = docs.length;
+                  
+                  for (var doc in docs) {
+                    var sData = doc.data() as Map<String, dynamic>;
+                    bool isAbsent = sData['absent'] ?? false;
+                    
+                    String memRating = sData['memorizationRating']?.toString() ?? sData['rating']?.toString() ?? '';
+                    String revRating = sData['reviewRating']?.toString() ?? sData['rating']?.toString() ?? '';
+
+                    if (isAbsent) {
+                      absentCount++;
+                    } else {
+                      if (memRating == 'ممتاز' || memRating == 'جيد جداً' || revRating == 'ممتاز' || revRating == 'جيد جداً') {
+                        excellentCount++;
+                      } else if (memRating == 'جيد' || memRating == 'مقبول' || revRating == 'جيد' || revRating == 'مقبول') {
+                        goodCount++;
+                      } else if (memRating == 'سيء' || memRating == 'ضعيف' || revRating == 'سيء' || revRating == 'ضعيف') {
+                        badCount++;
+                      } else {
+                        goodCount++;
+                      }
+                    }
+                  }
+
+                  sortedDocs = List.from(docs);
+                  sortedDocs.sort((a, b) {
+                    String aDate = (a.data() as Map<String, dynamic>)['date']?.toString() ?? '';
+                    String bDate = (b.data() as Map<String, dynamic>)['date']?.toString() ?? '';
+                    return bDate.compareTo(aDate);
+                  });
                 }
-              }
-            }
 
-            sortedDocs = List.from(docs);
-            sortedDocs.sort((a, b) {
-              String aDate = (a.data() as Map<String, dynamic>)['date']?.toString() ?? '';
-              String bDate = (b.data() as Map<String, dynamic>)['date']?.toString() ?? '';
-              return bDate.compareTo(aDate);
-            });
-          }
+                int presentCount = totalSessions - absentCount;
 
-          int presentCount = totalSessions - absentCount;
-
-          switch (_currentTabIndex) {
-            case 0: 
-              return RefreshIndicator(
-                onRefresh: () async => setState(() {}),
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildProfileCard(data),
-                      _buildQuranProgressSection(sessionSnapshot),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        child: Text("📊 لوحة الأداء والإحصائيات الحية", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Cairo', color: primaryColor)),
+                switch (_currentTabIndex) {
+                  case 0: 
+                    return RefreshIndicator(
+                      onRefresh: () async => setState(() {}),
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                        padding: const EdgeInsets.only(bottom: 100),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildProfileCard(data, isDarkMode),
+                            _buildQuranProgressSection(sessionSnapshot, isDarkMode),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              child: Text("📊 لوحة الأداء والإحصائيات الحية", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Cairo', color: isDarkMode ? Colors.white : primaryColor)),
+                            ),
+                            _buildParentStatsDashboard(
+                              total: totalSessions,
+                              present: presentCount,
+                              absent: absentCount,
+                              excellent: excellentCount,
+                              good: goodCount,
+                              bad: badCount,
+                              isDarkMode: isDarkMode,
+                            ),
+                            const SizedBox(height: 30),
+                          ],
+                        ),
                       ),
-                      _buildParentStatsDashboard(
-                        total: totalSessions,
-                        present: presentCount,
-                        absent: absentCount,
-                        excellent: excellentCount,
-                        good: goodCount,
-                        bad: badCount,
-                      ),
-                      const SizedBox(height: 30),
-                    ],
-                  ),
-                ),
-              );
-              
-            case 1: 
-              return sessionSnapshot.connectionState == ConnectionState.waiting
-                  ? const Center(child: CircularProgressIndicator())
-                  : sortedDocs.isEmpty
-                      ? Center(child: Text("لا يوجد جلسات مسجلة بعد لهذا الطالب", style: TextStyle(color: Colors.grey[600], fontFamily: 'Cairo', fontSize: 14)))
-                      : ListView.builder(
-                          physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          itemCount: sortedDocs.length,
-                          itemBuilder: (context, index) {
-                            var session = sortedDocs[index].data() as Map<String, dynamic>;
-                            return _buildSessionItem(session, isCompletedStudent);
-                          },
-                        );
-                        
-            case 2: 
-              return SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 15),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      child: Text("🏆 لوحة أوسمة الشرف للمعهد", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Cairo', color: primaryColor)),
-                    ),
-                    _buildHonorBoardSection(serialStr),
-                    const SizedBox(height: 25),
-                    Center(
+                    );
+                    
+                  case 1: 
+                    return sessionSnapshot.connectionState == ConnectionState.waiting
+                        ? const Center(child: CircularProgressIndicator())
+                        : sortedDocs.isEmpty
+                            ? Center(child: _buildGlassContainer(isDarkMode: isDarkMode, padding: const EdgeInsets.all(20), child: Text("لا يوجد جلسات مسجلة بعد لهذا الطالب", style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.grey[600], fontFamily: 'Cairo', fontSize: 14))))
+                            : ListView.builder(
+                                physics: const BouncingScrollPhysics(),
+                                padding: const EdgeInsets.only(top: 10, bottom: 100),
+                                itemCount: sortedDocs.length,
+                                itemBuilder: (context, index) {
+                                  var session = sortedDocs[index].data() as Map<String, dynamic>;
+                                  return _buildSessionItem(session, isCompletedStudent, isDarkMode);
+                                },
+                              );
+                              
+                  case 2: 
+                    return SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: 100),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.workspace_premium_rounded, size: 80, color: goldColor.withOpacity(0.3)),
-                          const SizedBox(height: 10),
-                          Text(
-                            "منظومة تحفيز الطلاب الذكية",
-                            style: TextStyle(fontFamily: 'Cairo', fontSize: 14, fontWeight: FontWeight.bold, color: primaryColor),
-                          ),
+                          const SizedBox(height: 15),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 6),
-                            child: Text(
-                              "يتم تحديث قائمة النجوم بشكل دوري من إدارة الحلقة لتكريم الطلاب الأكثر انضباطاً وتميزاً.",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontFamily: 'Cairo', fontSize: 11, color: Colors.grey.shade500, height: 1.4),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                            child: Text("🏆 لوحة أوسمة الشرف للمعهد", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Cairo', color: isDarkMode ? Colors.white : primaryColor)),
+                          ),
+                          _buildHonorBoardSection(serialStr, isDarkMode),
+                          const SizedBox(height: 25),
+                          Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.workspace_premium_rounded, size: 80, color: goldColor.withOpacity(0.3)),
+                                const SizedBox(height: 10),
+                                Text(
+                                  "منظومة تحفيز الطلاب الذكية",
+                                  style: TextStyle(fontFamily: 'Cairo', fontSize: 14, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : primaryColor),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 6),
+                                  child: Text(
+                                    "يتم تحديث قائمة النجوم بشكل دوري من إدارة الحلقة لتكريم الطلاب الأكثر انضباطاً وتميزاً.",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontFamily: 'Cairo', fontSize: 11, color: isDarkMode ? Colors.white54 : Colors.grey.shade500, height: 1.4),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              );
-            default:
-              return const SizedBox();
-          }
-        },
+                    );
+                  default:
+                    return const SizedBox();
+                }
+              },
+            ),
+          ),
+        ],
       ),
 
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, -4))],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentTabIndex,
-          onTap: (index) {
-            setState(() {
-              _currentTabIndex = index;
-            });
-          },
-          backgroundColor: Colors.white,
-          selectedItemColor: primaryColor,
-          unselectedItemColor: Colors.grey.shade400,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          selectedFontSize: 12,
-          unselectedFontSize: 11,
-          selectedLabelStyle: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
-          unselectedLabelStyle: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w500),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.analytics_outlined, size: 22),
-              activeIcon: Icon(Icons.analytics_rounded, size: 22),
-              label: 'الخلاصة',
+      bottomNavigationBar: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDarkMode ? Colors.black.withOpacity(0.5) : Colors.white.withOpacity(0.8),
+              border: Border(top: BorderSide(color: isDarkMode ? Colors.white12 : Colors.black12, width: 1)),
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.history_edu_outlined, size: 22),
-              activeIcon: Icon(Icons.history_edu_rounded, size: 22),
-              label: 'السجل اليومي',
+            child: BottomNavigationBar(
+              currentIndex: _currentTabIndex,
+              onTap: (index) {
+                setState(() {
+                  _currentTabIndex = index;
+                });
+              },
+              backgroundColor: Colors.transparent, 
+              selectedItemColor: isDarkMode ? goldColor : primaryColor,
+              unselectedItemColor: isDarkMode ? Colors.white54 : Colors.grey.shade500,
+              type: BottomNavigationBarType.fixed,
+              elevation: 0,
+              selectedFontSize: 12,
+              unselectedFontSize: 11,
+              selectedLabelStyle: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+              unselectedLabelStyle: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w600),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.analytics_outlined, size: 22),
+                  activeIcon: Icon(Icons.analytics_rounded, size: 22),
+                  label: 'الخلاصة',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.history_edu_outlined, size: 22),
+                  activeIcon: Icon(Icons.history_edu_rounded, size: 22),
+                  label: 'السجل اليومي',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.stars_outlined, size: 22),
+                  activeIcon: Icon(Icons.stars_rounded, size: 22),
+                  label: 'لوحة التميز',
+                ),
+              ],
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.stars_outlined, size: 22),
-              activeIcon: Icon(Icons.stars_rounded, size: 22),
-              label: 'لوحة التميز',
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -338,21 +394,22 @@ class _ParentHomePageState extends State<ParentHomePage> {
     }
   }
 
-  void _showLogoutDialog() {
+  void _showLogoutDialog(bool isDarkMode) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          title: const Text('تسجيل الخروج', style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-          content: const Text('هل أنت متأكد من رغبتك في تسجيل الخروج من بوابة المتابعة؟', style: TextStyle(fontFamily: 'Cairo')),
+          backgroundColor: isDarkMode ? const Color(0xff1e293b) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('تسجيل الخروج', style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: isDarkMode ? Colors.white : Colors.black87)),
+          content: Text('هل أنت متأكد من رغبتك في تسجيل الخروج من بوابة المتابعة؟', style: TextStyle(fontFamily: 'Cairo', color: isDarkMode ? Colors.white70 : Colors.black87)),
           actions: [
             TextButton(
-              child: const Text('إلغاء', style: TextStyle(color: Colors.grey, fontFamily: 'Cairo')),
+              child: const Text('إلغاء', style: TextStyle(color: Colors.grey, fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
               onPressed: () => Navigator.of(context).pop(),
             ),
             TextButton(
-              child: const Text('خروج', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+              child: const Text('خروج', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
               onPressed: () async {
                 Navigator.of(context).pop();
                 final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -372,36 +429,61 @@ class _ParentHomePageState extends State<ParentHomePage> {
     );
   }
 
-  Widget _buildProfileCard(Map<String, dynamic> data) {
-    return Container(
-      margin: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 10),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 5))],
-      ),
-      child: Row(
-        children: [
-          _buildStudentAvatar(data['imageUrl'] ?? '', data['name'] ?? '?'),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(data['name'] ?? '', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: primaryColor, fontFamily: 'Cairo')),
-                const SizedBox(height: 4),
-                Text('الرقم التسلسلي: ${data['serial']}', style: const TextStyle(color: Colors.grey, fontSize: 12, fontFamily: 'Cairo')),
-                Text('المرحلة الدراسية: ${data['schoolGrade'] ?? ''}', style: const TextStyle(color: Colors.grey, fontSize: 12, fontFamily: 'Cairo')),
-              ],
+  Widget _buildGlassContainer({required Widget child, required bool isDarkMode, EdgeInsetsGeometry padding = EdgeInsets.zero, Color? customColor, Color? customBorderColor}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(25),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: customColor ?? (isDarkMode ? Colors.white.withOpacity(0.06) : Colors.white.withOpacity(0.4)),
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(
+              color: customBorderColor ?? (isDarkMode ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.6)),
+              width: 1.5,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-        ],
+          child: child,
+        ),
       ),
     );
   }
 
-  // 🎯 الدالة المحدثة كلياً بشكل ملوكي وبصري متطور للغاية
+  Widget _buildProfileCard(Map<String, dynamic> data, bool isDarkMode) {
+    return Container(
+      margin: const EdgeInsets.only(top: 10, left: 20, right: 20, bottom: 10),
+      child: _buildGlassContainer(
+        isDarkMode: isDarkMode,
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            _buildStudentAvatar(data['imageUrl'] ?? '', data['name'] ?? '?', isDarkMode),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(data['name'] ?? '', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo')),
+                  const SizedBox(height: 4),
+                  Text('الرقم التسلسلي: ${data['serial']}', style: TextStyle(color: isDarkMode ? Colors.white60 : Colors.grey[700], fontSize: 12, fontFamily: 'Cairo', fontWeight: FontWeight.w600)),
+                  Text('المرحلة الدراسية: ${data['schoolGrade'] ?? ''}', style: TextStyle(color: isDarkMode ? Colors.white60 : Colors.grey[700], fontSize: 12, fontFamily: 'Cairo', fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildParentStatsDashboard({
     required int total,
     required int present,
@@ -409,8 +491,8 @@ class _ParentHomePageState extends State<ParentHomePage> {
     required int excellent,
     required int good,
     required int bad,
+    required bool isDarkMode,
   }) {
-    // حساب النسب المئوية أوتوماتيكياً للعرض الدائري الذكي
     double attendanceRate = total > 0 ? (present / total) : 0.0;
     double excellentRate = present > 0 ? (excellent / present) : 0.0;
 
@@ -418,17 +500,12 @@ class _ParentHomePageState extends State<ParentHomePage> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
-          // 🥇 الصف الأول: الأقراص الدائرية لنسب الإنجاز الحية
           Row(
             children: [
               Expanded(
-                child: Container(
+                child: _buildGlassContainer(
+                  isDarkMode: isDarkMode,
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 12, offset: const Offset(0, 4))],
-                  ),
                   child: Row(
                     children: [
                       Stack(
@@ -440,11 +517,11 @@ class _ParentHomePageState extends State<ParentHomePage> {
                             child: CircularProgressIndicator(
                               value: attendanceRate,
                               strokeWidth: 5,
-                              backgroundColor: Colors.green.shade50,
+                              backgroundColor: isDarkMode ? Colors.green.withOpacity(0.1) : Colors.green.shade50,
                               valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
                             ),
                           ),
-                          Text("${(attendanceRate * 100).toStringAsFixed(0)}%", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                          Text("${(attendanceRate * 100).toStringAsFixed(0)}%", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: isDarkMode ? Colors.white : Colors.black87)),
                         ],
                       ),
                       const SizedBox(width: 12),
@@ -452,8 +529,8 @@ class _ParentHomePageState extends State<ParentHomePage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text("نسبة الالتزام", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: Colors.black87)),
-                            Text("$present من أصل $total جلسة", style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontFamily: 'Cairo')),
+                            Text("نسبة الالتزام", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: isDarkMode ? Colors.white : Colors.black87)),
+                            Text("$present من أصل $total جلسة", style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white54 : Colors.grey.shade600, fontFamily: 'Cairo', fontWeight: FontWeight.w600)),
                           ],
                         ),
                       )
@@ -463,13 +540,9 @@ class _ParentHomePageState extends State<ParentHomePage> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Container(
+                child: _buildGlassContainer(
+                  isDarkMode: isDarkMode,
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 12, offset: const Offset(0, 4))],
-                  ),
                   child: Row(
                     children: [
                       Stack(
@@ -481,7 +554,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
                             child: CircularProgressIndicator(
                               value: excellentRate,
                               strokeWidth: 5,
-                              backgroundColor: const Color(0xfffef9e7),
+                              backgroundColor: isDarkMode ? goldColor.withOpacity(0.1) : const Color(0xfffef9e7),
                               valueColor: AlwaysStoppedAnimation<Color>(goldColor),
                             ),
                           ),
@@ -493,8 +566,8 @@ class _ParentHomePageState extends State<ParentHomePage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text("التميز والاتقان", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: Colors.black87)),
-                            Text("$excellent مرات متميزة", style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontFamily: 'Cairo')),
+                            Text("التميز والاتقان", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: isDarkMode ? Colors.white : Colors.black87)),
+                            Text("$excellent مرات متميزة", style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white54 : Colors.grey.shade600, fontFamily: 'Cairo', fontWeight: FontWeight.w600)),
                           ],
                         ),
                       )
@@ -507,7 +580,6 @@ class _ParentHomePageState extends State<ParentHomePage> {
           
           const SizedBox(height: 12),
           
-          // 🥈 الصف الثاني: شبكة تفصيلية ملوكية مبهجة للعين تفصل التقييمات والغياب
           Row(
             children: [
               Expanded(
@@ -516,7 +588,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
                   value: "$excellent",
                   icon: Icons.auto_awesome_rounded,
                   baseColor: goldColor,
-                  bgGradientColor: const Color(0xfffdfaf0),
+                  isDarkMode: isDarkMode,
                 ),
               ),
               const SizedBox(width: 10),
@@ -525,8 +597,8 @@ class _ParentHomePageState extends State<ParentHomePage> {
                   title: "المستوى المستقر",
                   value: "$good",
                   icon: Icons.thumb_up_alt_rounded,
-                  baseColor: Colors.blue.shade600,
-                  bgGradientColor: const Color(0xfff4f9ff),
+                  baseColor: Colors.blue.shade500,
+                  isDarkMode: isDarkMode,
                 ),
               ),
             ],
@@ -542,7 +614,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
                   value: "$bad",
                   icon: Icons.trending_down_rounded,
                   baseColor: Colors.redAccent.shade400,
-                  bgGradientColor: const Color(0xfffff5f5),
+                  isDarkMode: isDarkMode,
                 ),
               ),
               const SizedBox(width: 10),
@@ -551,9 +623,9 @@ class _ParentHomePageState extends State<ParentHomePage> {
                   title: "جلسات الغياب",
                   value: "$absent",
                   icon: Icons.cancel_presentation_rounded,
-                  baseColor: absent >= 3 ? Colors.red : Colors.grey.shade600,
-                  bgGradientColor: absent >= 3 ? const Color(0xfffdf2f2) : const Color(0xfff8fafc),
+                  baseColor: absent >= 3 ? Colors.redAccent : Colors.grey.shade500,
                   badgeText: absent >= 3 ? "تنبيه غياب! ⚠️" : null,
+                  isDarkMode: isDarkMode,
                 ),
               ),
             ],
@@ -563,22 +635,19 @@ class _ParentHomePageState extends State<ParentHomePage> {
     );
   }
 
-  // 🎨 دالة ذكية لبناء كروت الواجهة المحدثة بلمسات جمالية رقيقة
   Widget _buildModernStatMiniCard({
     required String title,
     required String value,
     required IconData icon,
     required Color baseColor,
-    required Color bgGradientColor,
+    required bool isDarkMode,
     String? badgeText,
   }) {
-    return Container(
+    return _buildGlassContainer(
+      isDarkMode: isDarkMode,
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: bgGradientColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: baseColor.withOpacity(0.12), width: 1),
-      ),
+      customColor: baseColor.withOpacity(isDarkMode ? 0.1 : 0.05),
+      customBorderColor: baseColor.withOpacity(0.3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -587,27 +656,27 @@ class _ParentHomePageState extends State<ParentHomePage> {
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(color: baseColor.withOpacity(0.1), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: baseColor.withOpacity(0.15), shape: BoxShape.circle),
                 child: Icon(icon, color: baseColor, size: 18),
               ),
               if (badgeText != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)),
+                  decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(6)),
                   child: Text(badgeText, style: const TextStyle(color: Colors.white, fontSize: 8, fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
                 ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: primaryColor, fontFamily: 'Cairo', height: 1)),
+          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo', height: 1)),
           const SizedBox(height: 2),
-          Text(title, style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontFamily: 'Cairo')),
+          Text(title, style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white70 : Colors.grey.shade700, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
         ],
       ),
     );
   }
 
-  Widget _buildQuranProgressSection(AsyncSnapshot<QuerySnapshot> sessionSnapshot) {
+  Widget _buildQuranProgressSection(AsyncSnapshot<QuerySnapshot> sessionSnapshot, bool isDarkMode) {
     double savedPages = 0.0;
 
     if (sessionSnapshot.hasData && sessionSnapshot.data!.docs.isNotEmpty) {
@@ -639,92 +708,93 @@ class _ParentHomePageState extends State<ParentHomePage> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 10)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.auto_stories_rounded, color: Colors.teal, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                "مستوى تقدم الطالب في الختمة 👑",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: primaryColor, fontFamily: 'Cairo'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "تم تمكين $savedPages من أصل 604 صفحة",
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500, fontFamily: 'Cairo'),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: Colors.teal.shade50, borderRadius: BorderRadius.circular(8)),
-                child: Text(
-                  "${(progressPercentage * 100).toStringAsFixed(1)}%",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.teal.shade900, fontFamily: 'Cairo'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: progressPercentage,
-              minHeight: 8,
-              backgroundColor: Colors.grey.shade100,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.teal.shade600),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.teal.withOpacity(0.03),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
+      child: _buildGlassContainer(
+        isDarkMode: isDarkMode,
+        padding: const EdgeInsets.all(18),
+        customBorderColor: Colors.teal.withOpacity(0.3),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Icon(Icons.favorite_rounded, color: Colors.red.shade400, size: 14),
+                Icon(Icons.auto_stories_rounded, color: isDarkMode ? Colors.tealAccent : Colors.teal, size: 18),
                 const SizedBox(width: 8),
-                Expanded(
+                Text(
+                  "مستوى تقدم الطالب في الختمة 👑",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "تم تمكين $savedPages من أصل 604 صفحة",
+                  style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white70 : Colors.grey.shade700, fontWeight: FontWeight.bold, fontFamily: 'Cairo'),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: Colors.teal.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
                   child: Text(
-                    remainingPages == 0 
-                        ? "مبارك! للطالب ختم كتاب الله كاملاً، هنيئاً لك 🎉👑"
-                        : "متبقي للطالب [ ${remainingPages.toStringAsFixed(0)} صفحة ] ويختم كتاب الله كاملاً ✨",
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: primaryColor, height: 1.4, fontFamily: 'Cairo'),
+                    "${(progressPercentage * 100).toStringAsFixed(1)}%",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDarkMode ? Colors.tealAccent : Colors.teal.shade900, fontFamily: 'Cairo'),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: LinearProgressIndicator(
+                value: progressPercentage,
+                minHeight: 8,
+                backgroundColor: isDarkMode ? Colors.white12 : Colors.grey.shade200,
+                valueColor: AlwaysStoppedAnimation<Color>(isDarkMode ? Colors.tealAccent : Colors.teal.shade500),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDarkMode ? Colors.tealAccent.withOpacity(0.05) : Colors.teal.withOpacity(0.03),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.teal.withOpacity(isDarkMode ? 0.2 : 0.1)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.favorite_rounded, color: Colors.red.shade400, size: 14),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      remainingPages == 0 
+                          ? "مبارك! للطالب ختم كتاب الله كاملاً، هنيئاً لك 🎉👑"
+                          : "متبقي للطالب [ ${remainingPages.toStringAsFixed(0)} صفحة ] ويختم كتاب الله كاملاً ✨",
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, height: 1.4, fontFamily: 'Cairo'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildHonorBoardSection(String currentStudentSerial) {
+  Widget _buildHonorBoardSection(String currentStudentSerial, bool isDarkMode) {
     if (_isHonorLoading) {
       return const SizedBox(height: 140, child: Center(child: CircularProgressIndicator()));
     }
     if (allWinners.isEmpty) {
-      return const SizedBox(height: 140, child: Center(child: Text("سيتم إعلان النجوم قريباً", style: TextStyle(fontSize: 13, color: Colors.grey, fontFamily: 'Cairo'))));
+      return SizedBox(height: 140, child: Center(child: Text("سيتم إعلان النجوم قريباً", style: TextStyle(fontSize: 13, color: isDarkMode ? Colors.white54 : Colors.grey, fontFamily: 'Cairo'))));
     }
 
     return SizedBox(
       height: 140,
       child: ListView.builder(
+        physics: const BouncingScrollPhysics(),
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 15),
         itemCount: allWinners.length,
@@ -738,53 +808,52 @@ class _ParentHomePageState extends State<ParentHomePage> {
           return Container(
             width: 110,
             margin: const EdgeInsets.symmetric(horizontal: 5),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isCurrent ? goldColor.withOpacity(0.15) : Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: isCurrent ? Border.all(color: goldColor, width: 1.5) : null,
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 5)],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: goldColor.withOpacity(0.5), width: 2),
-                    color: primaryColor.withOpacity(0.1),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(27),
-                    child: finalImageUrl.isNotEmpty && finalImageUrl.startsWith('http')
-                        ? CachedNetworkImage(
-                            imageUrl: finalImageUrl,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => const Center(child: SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2))),
-                            errorWidget: (context, url, error) => Center(
-                              child: Text(winnerName.isNotEmpty ? winnerName.substring(0, 1) : '?', style: TextStyle(fontSize: 18, color: primaryColor, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+            child: _buildGlassContainer(
+              isDarkMode: isDarkMode,
+              padding: const EdgeInsets.all(8),
+              customColor: isCurrent ? goldColor.withOpacity(0.15) : (isDarkMode ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.4)),
+              customBorderColor: isCurrent ? goldColor.withOpacity(0.8) : null,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: goldColor.withOpacity(0.6), width: 2),
+                      color: primaryColor.withOpacity(0.1),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(27),
+                      child: finalImageUrl.isNotEmpty && finalImageUrl.startsWith('http')
+                          ? CachedNetworkImage(
+                              imageUrl: finalImageUrl,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => const Center(child: SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2))),
+                              errorWidget: (context, url, error) => Center(
+                                child: Text(winnerName.isNotEmpty ? winnerName.substring(0, 1) : '?', style: TextStyle(fontSize: 18, color: isDarkMode ? goldColor : primaryColor, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                              ),
+                            )
+                          : Center(
+                              child: Text(winnerName.isNotEmpty ? winnerName.substring(0, 1) : '?', style: TextStyle(fontSize: 18, color: isDarkMode ? goldColor : primaryColor, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
                             ),
-                          )
-                        : Center(
-                            child: Text(winnerName.isNotEmpty ? winnerName.substring(0, 1) : '?', style: TextStyle(fontSize: 18, color: primaryColor, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-                          ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  winnerName, 
-                  textAlign: TextAlign.center, 
-                  maxLines: 1, 
-                  overflow: TextOverflow.ellipsis, 
-                  style: TextStyle(fontSize: 11, color: primaryColor, fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal, fontFamily: 'Cairo'),
-                ),
-                Text(
-                  isCurrent ? "👑 ابنكم متميز" : "🏆 متميز", 
-                  style: TextStyle(fontSize: 10, color: isCurrent ? goldColor : Colors.orange, fontWeight: FontWeight.bold, fontFamily: 'Cairo')
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    winnerName, 
+                    textAlign: TextAlign.center, 
+                    maxLines: 1, 
+                    overflow: TextOverflow.ellipsis, 
+                    style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white : primaryColor, fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600, fontFamily: 'Cairo'),
+                  ),
+                  Text(
+                    isCurrent ? "👑 ابنكم متميز" : "🏆 متميز", 
+                    style: TextStyle(fontSize: 10, color: isCurrent ? goldColor : Colors.orangeAccent, fontWeight: FontWeight.bold, fontFamily: 'Cairo')
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -792,7 +861,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
     );
   }
 
-  Widget _buildSessionItem(Map<String, dynamic> session, bool isCompletedStudent) {
+  Widget _buildSessionItem(Map<String, dynamic> session, bool isCompletedStudent, bool isDarkMode) {
     final String sessionDate = session['date']?.toString() ?? 'بدون تاريخ';
     final bool isAbsent = session['absent'] ?? false;
     final bool isExam = session['isExam'] ?? false; 
@@ -801,47 +870,46 @@ class _ParentHomePageState extends State<ParentHomePage> {
     if (isAbsent) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.025), blurRadius: 15, offset: const Offset(0, 5))],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.08),
-                borderRadius: const BorderRadius.only(topLeft: Radius.circular(22), topRight: Radius.circular(22)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red.shade900, fontFamily: 'Cairo', fontSize: 13)),
-                  _buildCustomBadge("غائب ❌", Colors.red.shade700, Colors.red.shade50),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildMinimalistDetailRow(Icons.person_outline_rounded, "المشرف المسجِّل", supervisorName, isBold: true),
-                  const SizedBox(height: 10),
-                  _buildMinimalistDetailRow(Icons.warning_amber_rounded, "نوع الغياب", session['absenceType'] == "" ? "بدون عذر" : (session['absenceType'] ?? 'بدون عذر')),
-                  if (session['absenceReason'] != null && session['absenceReason'].toString().trim().isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    _buildMinimalistDetailRow(Icons.info_outline_rounded, "سبب الغياب", session['absenceReason']),
+        child: _buildGlassContainer(
+          isDarkMode: isDarkMode,
+          customBorderColor: Colors.redAccent.withOpacity(0.4),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withOpacity(isDarkMode ? 0.2 : 0.1),
+                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.redAccent.shade100 : Colors.red.shade900, fontFamily: 'Cairo', fontSize: 13)),
+                    _buildCustomBadge("غائب ❌", isDarkMode ? Colors.white : Colors.red.shade700, Colors.redAccent.withOpacity(isDarkMode ? 0.4 : 0.2)),
                   ],
-                  if (session['notes'] != null && session['notes'].toString().trim().isNotEmpty) ...[
-                    const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider(height: 1)),
-                    Text("📝 ملاحظة المشرف: ${session['notes']}", style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-                  ]
-                ],
+                ),
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMinimalistDetailRow(Icons.person_outline_rounded, "المشرف المسجِّل", supervisorName, isDarkMode, isBold: true),
+                    const SizedBox(height: 10),
+                    _buildMinimalistDetailRow(Icons.warning_amber_rounded, "نوع الغياب", session['absenceType'] == "" ? "بدون عذر" : (session['absenceType'] ?? 'بدون عذر'), isDarkMode),
+                    if (session['absenceReason'] != null && session['absenceReason'].toString().trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _buildMinimalistDetailRow(Icons.info_outline_rounded, "سبب الغياب", session['absenceReason'], isDarkMode),
+                    ],
+                    if (session['notes'] != null && session['notes'].toString().trim().isNotEmpty) ...[
+                      Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : Colors.black12)),
+                      Text("📝 ملاحظة المشرف: ${session['notes']}", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.orangeAccent : Colors.orange.shade900, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                    ]
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -852,64 +920,63 @@ class _ParentHomePageState extends State<ParentHomePage> {
 
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.025), blurRadius: 15, offset: const Offset(0, 5))],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: examColor.withOpacity(0.08),
-                borderRadius: const BorderRadius.only(topLeft: Radius.circular(22), topRight: Radius.circular(22)),
+        child: _buildGlassContainer(
+          isDarkMode: isDarkMode,
+          customBorderColor: examColor.withOpacity(0.4),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: examColor.withOpacity(isDarkMode ? 0.2 : 0.1),
+                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? examColor.withOpacity(0.8) : examColor, fontFamily: 'Cairo', fontSize: 13)),
+                    _buildCustomBadge("جلسة اختبار 📝", isDarkMode ? Colors.white : examColor, examColor.withOpacity(isDarkMode ? 0.4 : 0.2)),
+                  ],
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: examColor, fontFamily: 'Cairo', fontSize: 13)),
-                  _buildCustomBadge("جلسة اختبار 📝", examColor, examColor.withOpacity(0.15)),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildMinimalistDetailRow(Icons.person_outline_rounded, "المشرف المسجِّل", supervisorName, isBold: true),
-                  const SizedBox(height: 15),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: examColor.withOpacity(0.03),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: examColor.withOpacity(0.15)),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMinimalistDetailRow(Icons.person_outline_rounded, "المشرف المسجِّل", supervisorName, isDarkMode, isBold: true),
+                    const SizedBox(height: 15),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: examColor.withOpacity(isDarkMode ? 0.1 : 0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: examColor.withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.workspace_premium_rounded, color: examColor, size: 26),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("النتيجة الرسمية لاختبار الطالب", style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white60 : Colors.grey, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                              Text("$score / 100", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: examColor, fontFamily: 'Cairo')),
+                            ],
+                          )
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.workspace_premium_rounded, color: examColor, size: 26),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text("النتيجة الرسمية لاختبار الطالب", style: TextStyle(fontSize: 11, color: Colors.grey, fontFamily: 'Cairo')),
-                            Text("$score / 100", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: examColor, fontFamily: 'Cairo')),
-                          ],
-                        )
-                      ],
-                    ),
-                  ),
-                  if (session['notes'] != null && session['notes'].toString().trim().isNotEmpty) ...[
-                    const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider(height: 1)),
-                    Text("📝 ملاحظة المشرف: ${session['notes']}", style: const TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-                  ]
-                ],
+                    if (session['notes'] != null && session['notes'].toString().trim().isNotEmpty) ...[
+                      Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : Colors.black12)),
+                      Text("📝 ملاحظة المشرف: ${session['notes']}", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.orangeAccent : Colors.orange, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                    ]
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -919,104 +986,103 @@ class _ParentHomePageState extends State<ParentHomePage> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.025), blurRadius: 18, offset: const Offset(0, 6))],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.05),
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontFamily: 'Cairo', fontSize: 13)),
-                Row(
-                  children: [
-                    if (isCompletedStudent)
-                      _buildCustomBadge("مراجعة الختمة: $revRating", _getRatingColor(revRating), _getRatingColor(revRating).withOpacity(0.12))
-                    else ...[
-                      _buildCustomBadge("حفظ: $memRating", _getRatingColor(memRating), _getRatingColor(memRating).withOpacity(0.12)),
-                      const SizedBox(width: 5),
-                      _buildCustomBadge("مراجعة: $revRating", _getRatingColor(revRating), _getRatingColor(revRating).withOpacity(0.12)),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-          
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildMinimalistDetailRow(Icons.person_pin_rounded, "مشرف الجلسة", supervisorName, isBold: true),
-                const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: Color(0xfff1f5f9))),
-                
-                if (isCompletedStudent)
-                  _buildGridInfoBox(
-                    Icons.verified_user_rounded, 
-                    "المقدار المسموع من مراجعة الختمة الشاملة", 
-                    session['farReview'] ?? session['review'] ?? '---', 
-                    Colors.teal
-                  )
-                else ...[
+      child: _buildGlassContainer(
+        isDarkMode: isDarkMode,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDarkMode ? Colors.white.withOpacity(0.05) : primaryColor.withOpacity(0.05),
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo', fontSize: 13)),
                   Row(
                     children: [
-                      Expanded(child: _buildGridInfoBox(Icons.star_rounded, "الحفظ الجديد", session['newMemorization'] ?? '---', Colors.amber)),
-                      const SizedBox(width: 10),
-                      Expanded(child: _buildGridInfoBox(Icons.menu_book_rounded, "مراجعة جديد", session['nearReview'] ?? '---', Colors.teal)),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(child: _buildGridInfoBox(Icons.history_toggle_off_rounded, "مراجعة قديم", session['farReview'] ?? '---', Colors.blueGrey)),
-                      const SizedBox(width: 10),
-                      Expanded(child: _buildGridInfoBox(Icons.chrome_reader_mode_rounded, "قراءة نظراً", session['readingBySight'] ?? '---', Colors.indigo)),
+                      if (isCompletedStudent)
+                        _buildCustomBadge("مراجعة الختمة: $revRating", isDarkMode ? Colors.white : _getRatingColor(revRating), _getRatingColor(revRating).withOpacity(isDarkMode ? 0.4 : 0.2))
+                      else ...[
+                        _buildCustomBadge("حفظ: $memRating", isDarkMode ? Colors.white : _getRatingColor(memRating), _getRatingColor(memRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
+                        const SizedBox(width: 5),
+                        _buildCustomBadge("مراجعة: $revRating", isDarkMode ? Colors.white : _getRatingColor(revRating), _getRatingColor(revRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
+                      ],
                     ],
                   ),
                 ],
-                
-                const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: Color(0xfff1f5f9))),
-                
-                _buildMinimalistDetailRow(Icons.edit_note_rounded, isCompletedStudent ? "المقدار المطلوب للمرة القادمة" : "الواجب المعطى لليوم القادم", session['homework'] ?? '---'),
-                const SizedBox(height: 8),
-                _buildMinimalistDetailRow(Icons.emoji_emotions_outlined, "حالة سلوك الطالب بالحلقة", session['studentStatus'] ?? 'مهذب'),
-                const SizedBox(height: 8),
-                _buildMinimalistDetailRow(Icons.mosque_outlined, "الأنشطة والدروس الدينية بالمسجد", session['religiousActivities'] ?? '---'),
-                
-                if (session['notes'] != null && session['notes'].toString().trim().isNotEmpty) ...[
-                  const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1)),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Colors.orange.withOpacity(0.04), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.orange.withOpacity(0.15))),
-                    child: Text("📝 ملاحظة المشرف للأهل: ${session['notes']}", style: const TextStyle(fontSize: 12.5, color: Colors.orange, fontWeight: FontWeight.bold, fontFamily: 'Cairo', height: 1.4)),
-                  ),
-                ]
-              ],
+              ),
             ),
-          )
-        ],
+            
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildMinimalistDetailRow(Icons.person_pin_rounded, "مشرف الجلسة", supervisorName, isDarkMode, isBold: true),
+                  Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
+                  
+                  if (isCompletedStudent)
+                    _buildGridInfoBox(
+                      Icons.verified_user_rounded, 
+                      "المقدار المسموع من مراجعة الختمة الشاملة", 
+                      session['farReview'] ?? session['review'] ?? '---', 
+                      isDarkMode ? Colors.tealAccent : Colors.teal,
+                      isDarkMode
+                    )
+                  else ...[
+                    Row(
+                      children: [
+                        Expanded(child: _buildGridInfoBox(Icons.star_rounded, "الحفظ الجديد", session['newMemorization'] ?? '---', Colors.amber, isDarkMode)),
+                        const SizedBox(width: 10),
+                        Expanded(child: _buildGridInfoBox(Icons.menu_book_rounded, "مراجعة جديد", session['nearReview'] ?? '---', isDarkMode ? Colors.tealAccent : Colors.teal, isDarkMode)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(child: _buildGridInfoBox(Icons.history_toggle_off_rounded, "مراجعة قديم", session['farReview'] ?? '---', Colors.blueGrey, isDarkMode)),
+                        const SizedBox(width: 10),
+                        Expanded(child: _buildGridInfoBox(Icons.chrome_reader_mode_rounded, "قراءة نظراً", session['readingBySight'] ?? '---', Colors.indigoAccent, isDarkMode)),
+                      ],
+                    ),
+                  ],
+                  
+                  Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
+                  
+                  _buildMinimalistDetailRow(Icons.edit_note_rounded, isCompletedStudent ? "المقدار المطلوب للمرة القادمة" : "الواجب المعطى لليوم القادم", session['homework'] ?? '---', isDarkMode),
+                  const SizedBox(height: 8),
+                  _buildMinimalistDetailRow(Icons.emoji_emotions_outlined, "حالة سلوك الطالب بالحلقة", session['studentStatus'] ?? 'مهذب', isDarkMode),
+                  const SizedBox(height: 8),
+                  _buildMinimalistDetailRow(Icons.mosque_outlined, "الأنشطة والدروس الدينية بالمسجد", session['religiousActivities'] ?? '---', isDarkMode),
+                  
+                  if (session['notes'] != null && session['notes'].toString().trim().isNotEmpty) ...[
+                    Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : Colors.black12)),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Colors.orangeAccent.withOpacity(isDarkMode ? 0.1 : 0.04), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.orangeAccent.withOpacity(isDarkMode ? 0.3 : 0.15))),
+                      child: Text("📝 ملاحظة المشرف للأهل: ${session['notes']}", style: TextStyle(fontSize: 12.5, color: isDarkMode ? Colors.orangeAccent : Colors.orange.shade800, fontWeight: FontWeight.bold, fontFamily: 'Cairo', height: 1.4)),
+                    ),
+                  ]
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildGridInfoBox(IconData icon, String title, String val, Color iconColor) {
+  Widget _buildGridInfoBox(IconData icon, String title, String val, Color iconColor, bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.all(12),
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xfff8fafc),
+        color: isDarkMode ? Colors.black.withOpacity(0.2) : const Color(0xfff8fafc).withOpacity(0.6),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xffe2e8f0), width: 0.8),
+        border: Border.all(color: isDarkMode ? Colors.white12 : const Color(0xffe2e8f0), width: 0.8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1025,7 +1091,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
             children: [
               Icon(icon, size: 15, color: iconColor),
               const SizedBox(width: 6),
-              Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600, fontFamily: 'Cairo')),
+              Text(title, style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white60 : Colors.grey[700], fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
             ],
           ),
           const SizedBox(height: 6),
@@ -1033,26 +1099,26 @@ class _ParentHomePageState extends State<ParentHomePage> {
             val.trim().isEmpty ? '---' : val,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: primaryColor, fontFamily: 'Cairo'),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo'),
           )
         ],
       ),
     );
   }
 
-  Widget _buildMinimalistDetailRow(IconData icon, String label, String value, {bool isBold = false}) {
+  Widget _buildMinimalistDetailRow(IconData icon, String label, String value, bool isDarkMode, {bool isBold = false}) {
     return Row(
       children: [
-        Icon(icon, size: 17, color: primaryColor.withOpacity(0.6)),
+        Icon(icon, size: 17, color: isDarkMode ? accentGold : primaryColor.withOpacity(0.6)),
         const SizedBox(width: 8),
-        Text("$label: ", style: const TextStyle(fontSize: 12, color: Colors.grey, fontFamily: 'Cairo', fontWeight: FontWeight.w500)),
+        Text("$label: ", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white60 : Colors.grey[700], fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
         Expanded(
           child: Text(
             value.trim().isEmpty ? '---' : value,
             style: TextStyle(
               fontSize: 12.5, 
-              color: isBold ? primaryColor : Colors.black87, 
-              fontWeight: isBold ? FontWeight.bold : FontWeight.w500, 
+              color: isBold ? (isDarkMode ? Colors.white : primaryColor) : (isDarkMode ? Colors.white70 : Colors.black87), 
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w600, 
               fontFamily: 'Cairo'
             ),
           ),
@@ -1069,20 +1135,20 @@ class _ParentHomePageState extends State<ParentHomePage> {
     );
   }
 
-  Widget _buildStudentAvatar(String url, String name) {
+  Widget _buildStudentAvatar(String url, String name, bool isDarkMode) {
     return Container(
       width: 60,
       height: 60,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: primaryColor.withOpacity(0.1)),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: isDarkMode ? Colors.white12 : primaryColor.withOpacity(0.1)),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(30),
         child: url.isNotEmpty
             ? CachedNetworkImage(
                 imageUrl: url, 
                 fit: BoxFit.cover,
-                errorWidget: (c, u, e) => Center(child: Text(name.isNotEmpty ? name.substring(0, 1) : '?', style: TextStyle(fontSize: 22, color: primaryColor, fontWeight: FontWeight.bold, fontFamily: 'Cairo'))),
+                errorWidget: (c, u, e) => Center(child: Text(name.isNotEmpty ? name.substring(0, 1) : '?', style: TextStyle(fontSize: 22, color: isDarkMode ? accentGold : primaryColor, fontWeight: FontWeight.bold, fontFamily: 'Cairo'))),
               )
-            : Center(child: Text(name.isNotEmpty ? name.substring(0, 1) : '?', style: TextStyle(fontSize: 22, color: primaryColor, fontWeight: FontWeight.bold, fontFamily: 'Cairo'))),
+            : Center(child: Text(name.isNotEmpty ? name.substring(0, 1) : '?', style: TextStyle(fontSize: 22, color: isDarkMode ? accentGold : primaryColor, fontWeight: FontWeight.bold, fontFamily: 'Cairo'))),
       ),
     );
   }
