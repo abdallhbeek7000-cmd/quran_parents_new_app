@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'parent_home_page.dart';
+import 'onboarding_page.dart'; // 🎯 تم استدعاء صفحة الترحيب هنا
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -31,6 +32,7 @@ class _LoginPageState extends State<LoginPage> {
   void _checkSavedLogin() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? savedSerial = prefs.getString('saved_student_serial');
+    final bool hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false; // 🎯 قراءة حالة الشاشة الترحيبية
 
     if (savedSerial != null && savedSerial.isNotEmpty) {
       setState(() {
@@ -63,7 +65,9 @@ class _LoginPageState extends State<LoginPage> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => ParentHomePage(student: matchingStudents.first),
+              builder: (context) => hasSeenOnboarding
+                  ? ParentHomePage(student: matchingStudents.first)
+                  : OnboardingPage(student: matchingStudents.first), // 🎯 التوجيه الذكي
             ),
           );
           return;
@@ -153,11 +157,16 @@ class _LoginPageState extends State<LoginPage> {
       if (isPhoneValid) {
         final SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('saved_student_serial', serialInput);
+        final bool hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false; // 🎯 قراءة الحالة بعد تسجيل الدخول اليدوي
 
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => ParentHomePage(student: studentDoc)),
+            MaterialPageRoute(
+              builder: (context) => hasSeenOnboarding
+                  ? ParentHomePage(student: studentDoc)
+                  : OnboardingPage(student: studentDoc), // 🎯 التوجيه الذكي
+            ),
           );
         }
       } else {
