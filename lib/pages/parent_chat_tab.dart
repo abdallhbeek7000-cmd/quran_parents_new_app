@@ -1,8 +1,7 @@
 import 'dart:ui';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/notification_service.dart'; // 🎯 استدعاء مركز الإشعارات الجديد (تأكد من المسار حسب مشروعك)
 
 class ParentChatTab extends StatefulWidget {
   final String studentId;
@@ -42,45 +41,6 @@ class _ParentChatTabState extends State<ParentChatTab> {
     return '$hour:$minute $amPm';
   }
 
-  Future<void> _sendNotificationToSupervisor(String messageText) async {
-    try {
-      final supDoc = await FirebaseFirestore.instance.collection('supervisors').doc(widget.supervisorId).get();
-      if (!supDoc.exists || supDoc.data() == null) return;
-      
-      final token = supDoc.data()!['fcmToken'];
-      if (token == null || token.toString().isEmpty) return;
-
-      final settingsDoc = await FirebaseFirestore.instance.collection('settings').doc('general').get();
-      if (!settingsDoc.exists || settingsDoc.data() == null) return;
-
-      final serverKey = settingsDoc.data()!['fcm_server_key'];
-      if (serverKey == null || serverKey.toString().isEmpty) return;
-
-      await http.post(
-        Uri.parse('https://fcm.googleapis.com/fcm/send'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'key=$serverKey',
-        },
-        body: jsonEncode({
-          'to': token,
-          'notification': {
-            'title': '💬 رسالة من ولي أمر (${widget.studentName})',
-            'body': messageText,
-            'sound': 'default',
-          },
-          'data': {
-            'type': 'chat',
-            'studentId': widget.studentId,
-            'click_action': 'FLUTTER_NOTIFICATION_CLICK',
-          }
-        }),
-      );
-    } catch (e) {
-      print("خطأ في إرسال إشعار المحادثة: $e");
-    }
-  }
-
   void _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty || widget.supervisorId.isEmpty) return;
@@ -88,6 +48,7 @@ class _ParentChatTabState extends State<ParentChatTab> {
     _messageController.clear();
     _scrollToBottom();
 
+    // 1. حفظ الرسالة في قاعدة البيانات
     await FirebaseFirestore.instance
         .collection('chats')
         .doc(chatId)
@@ -99,6 +60,7 @@ class _ParentChatTabState extends State<ParentChatTab> {
       'timestamp': FieldValue.serverTimestamp(),
     });
 
+    // 2. تحديث بيانات المحادثة الأساسية
     await FirebaseFirestore.instance.collection('chats').doc(chatId).set({
       'studentId': widget.studentId,
       'studentName': widget.studentName,
@@ -110,7 +72,16 @@ class _ParentChatTabState extends State<ParentChatTab> {
       'unreadBySupervisor': FieldValue.increment(1),
     }, SetOptions(merge: true));
 
-    _sendNotificationToSupervisor(text);
+    // 🚀 3. إرسال الإشعار للمشرف باستخدام النظام الجديد (V1)
+    if (mounted) {
+      await NotificationService.sendAndSaveNotification(
+        studentId: widget.supervisorId, // نمرر آي دي المشرف لكي يبحث عنه الجوكر
+        title: "💬 رسالة من ولي أمر (${widget.studentName})",
+        body: text,
+        type: "chat",
+        context: context,
+      );
+    }
   }
 
   void _scrollToBottom() {
@@ -173,7 +144,7 @@ class _ParentChatTabState extends State<ParentChatTab> {
           ),
         ),
 
-        // 📝 منطقة عرض الرسائل (بلمسة زجاجية فخمة)
+        // 📝 منطقة عرض الرسائل
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
@@ -211,7 +182,6 @@ class _ParentChatTabState extends State<ParentChatTab> {
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 15),
                       constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-                      // 🚀 تأثير الزجاج للرسائل تماماً مثل المشرف
                       child: ClipRRect(
                         borderRadius: BorderRadius.only(
                           topLeft: const Radius.circular(20),
@@ -268,7 +238,7 @@ class _ParentChatTabState extends State<ParentChatTab> {
           ),
         ),
 
-        // ⌨️ كبسولة إدخال النص العائمة (Floating Pill)
+        // ⌨️ كبسولة إدخال النص العائمة
         Container(
           margin: EdgeInsets.only(
             left: 15, 
