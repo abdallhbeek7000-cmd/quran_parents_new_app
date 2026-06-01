@@ -160,8 +160,40 @@ class DailyLogTab extends StatelessWidget {
       );
     }
 
-    String memRating = session['memorizationRating'] ?? session['rating'] ?? "جيد";
-    String revRating = session['reviewRating'] ?? session['rating'] ?? "جيد";
+    // 🚀 جلب التقييمات بذكاء للحلقات العادية
+    String memRating = session['memorizationRating'] ?? "";
+    String revRating = session['reviewRating'] ?? "";
+    
+    if (memRating.isEmpty && session['rating'] != null && session['rating'].toString().isNotEmpty && session['newMemorization'] != null && session['newMemorization'].toString().isNotEmpty) {
+      memRating = session['rating'];
+    }
+    if (revRating.isEmpty && session['rating'] != null && session['rating'].toString().isNotEmpty && !isCompletedStudent && memRating.isEmpty) {
+      revRating = session['rating'];
+    } else if (revRating.isEmpty && session['rating'] != null && session['rating'].toString().isNotEmpty && isCompletedStudent) {
+      revRating = session['rating']; 
+    }
+
+    // 🚀 جلب بيانات الإنجاز
+    String nMemo = session['newMemorization']?.toString().trim() ?? '';
+    String nRev = session['nearReview']?.toString().trim() ?? '';
+    String fRev = session['farReview']?.toString().trim() ?? (isCompletedStudent ? (session['review']?.toString().trim() ?? '') : '');
+    String sight = session['readingBySight']?.toString().trim() ?? '';
+
+    // 🚀 جلب بيانات الواجب
+    String nHw = session['newHomework']?.toString().trim() ?? '';
+    String rHw = session['reviewHomework']?.toString().trim() ?? '';
+    String oldHw = session['homework']?.toString().trim() ?? '';
+
+    // 🚀 بناء مربعات الإنجاز بشكل ديناميكي (لا يظهر المربع إذا كان فارغاً)
+    List<Widget> activeBoxes = [];
+    if (isCompletedStudent && fRev.isNotEmpty) {
+      activeBoxes.add(_buildGridInfoBox(Icons.verified_user_rounded, "المقدار المسموع من مراجعة الختمة الشاملة", fRev, isDarkMode ? Colors.tealAccent : Colors.teal));
+    } else {
+      if (nMemo.isNotEmpty) activeBoxes.add(_buildGridInfoBox(Icons.star_rounded, "الحفظ الجديد", nMemo, Colors.amber));
+      if (nRev.isNotEmpty) activeBoxes.add(_buildGridInfoBox(Icons.menu_book_rounded, "مراجعة جديد", nRev, isDarkMode ? Colors.tealAccent : Colors.teal));
+      if (fRev.isNotEmpty) activeBoxes.add(_buildGridInfoBox(Icons.history_toggle_off_rounded, "مراجعة قديم", fRev, Colors.blueGrey));
+    }
+    if (sight.isNotEmpty) activeBoxes.add(_buildGridInfoBox(Icons.chrome_reader_mode_rounded, "قراءة نظراً", sight, Colors.indigoAccent));
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -180,12 +212,15 @@ class DailyLogTab extends StatelessWidget {
                   Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo', fontSize: 13)),
                   Row(
                     children: [
-                      if (isCompletedStudent)
-                        _buildCustomBadge("مراجعة الختمة: $revRating", isDarkMode ? Colors.white : _getRatingColor(revRating), _getRatingColor(revRating).withOpacity(isDarkMode ? 0.4 : 0.2))
-                      else ...[
-                        _buildCustomBadge("حفظ: $memRating", isDarkMode ? Colors.white : _getRatingColor(memRating), _getRatingColor(memRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
-                        const SizedBox(width: 5),
-                        _buildCustomBadge("مراجعة: $revRating", isDarkMode ? Colors.white : _getRatingColor(revRating), _getRatingColor(revRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
+                      if (isCompletedStudent && revRating.isNotEmpty)
+                        _buildCustomBadge("مراجعة الختمة: $revRating", isDarkMode ? Colors.white : _getRatingColor(revRating), _getRatingColor(revRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
+                      if (!isCompletedStudent) ...[
+                        if (memRating.isNotEmpty) ...[
+                          _buildCustomBadge("حفظ: $memRating", isDarkMode ? Colors.white : _getRatingColor(memRating), _getRatingColor(memRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
+                          const SizedBox(width: 5),
+                        ],
+                        if (revRating.isNotEmpty)
+                          _buildCustomBadge("مراجعة: $revRating", isDarkMode ? Colors.white : _getRatingColor(revRating), _getRatingColor(revRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
                       ],
                     ],
                   ),
@@ -201,38 +236,43 @@ class DailyLogTab extends StatelessWidget {
                   _buildMinimalistDetailRow(Icons.person_pin_rounded, "مشرف الجلسة", supervisorName, isBold: true),
                   Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
                   
-                  if (isCompletedStudent)
-                    _buildGridInfoBox(
-                      Icons.verified_user_rounded, 
-                      "المقدار المسموع من مراجعة الختمة الشاملة", 
-                      session['farReview'] ?? session['review'] ?? '---', 
-                      isDarkMode ? Colors.tealAccent : Colors.teal
-                    )
-                  else ...[
-                    Row(
-                      children: [
-                        Expanded(child: _buildGridInfoBox(Icons.star_rounded, "الحفظ الجديد", session['newMemorization'] ?? '---', Colors.amber)),
-                        const SizedBox(width: 10),
-                        Expanded(child: _buildGridInfoBox(Icons.menu_book_rounded, "مراجعة جديد", session['nearReview'] ?? '---', isDarkMode ? Colors.tealAccent : Colors.teal)),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(child: _buildGridInfoBox(Icons.history_toggle_off_rounded, "مراجعة قديم", session['farReview'] ?? '---', Colors.blueGrey)),
-                        const SizedBox(width: 10),
-                        Expanded(child: _buildGridInfoBox(Icons.chrome_reader_mode_rounded, "قراءة نظراً", session['readingBySight'] ?? '---', Colors.indigoAccent)),
-                      ],
-                    ),
+                  // 🚀 عرض المربعات الديناميكية 2 في كل سطر
+                  if (activeBoxes.isNotEmpty) ...[
+                    for (int i = 0; i < activeBoxes.length; i += 2)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: [
+                            Expanded(child: activeBoxes[i]),
+                            const SizedBox(width: 10),
+                            if (i + 1 < activeBoxes.length)
+                              Expanded(child: activeBoxes[i + 1])
+                            else
+                              Expanded(child: const SizedBox()), 
+                          ],
+                        ),
+                      ),
+                    Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
                   ],
                   
-                  Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
-                  
-                  _buildMinimalistDetailRow(Icons.edit_note_rounded, isCompletedStudent ? "المقدار المطلوب للمرة القادمة" : "الواجب المعطى لليوم القادم", session['homework'] ?? '---'),
+                  // 🚀 عرض حقول الواجب بذكاء
+                  if (nHw.isNotEmpty || rHw.isNotEmpty) ...[
+                    if (nHw.isNotEmpty) 
+                      _buildMinimalistDetailRow(Icons.edit_document, "واجب الحفظ الجديد القادم", nHw),
+                    if (nHw.isNotEmpty && rHw.isNotEmpty) const SizedBox(height: 8),
+                    if (rHw.isNotEmpty) 
+                      _buildMinimalistDetailRow(Icons.import_contacts_rounded, isCompletedStudent ? "المقدار المطلوب للمرة القادمة" : "واجب المراجعة القادم", rHw),
+                  ] else if (oldHw.isNotEmpty) ...[
+                    _buildMinimalistDetailRow(Icons.edit_note_rounded, isCompletedStudent ? "المقدار المطلوب للمرة القادمة" : "الواجب المعطى لليوم القادم", oldHw),
+                  ],
+
                   const SizedBox(height: 8),
                   _buildMinimalistDetailRow(Icons.emoji_emotions_outlined, "حالة سلوك الطالب بالحلقة", session['studentStatus'] ?? 'مهذب'),
-                  const SizedBox(height: 8),
-                  _buildMinimalistDetailRow(Icons.mosque_outlined, "الأنشطة والدروس الدينية بالمسجد", session['religiousActivities'] ?? '---'),
+                  
+                  if (session['religiousActivities'] != null && session['religiousActivities'].toString().trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _buildMinimalistDetailRow(Icons.mosque_outlined, "الأنشطة والدروس الدينية", session['religiousActivities']),
+                  ],
                   
                   if (session['notes'] != null && session['notes'].toString().trim().isNotEmpty) ...[
                     Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : Colors.black12)),
@@ -268,7 +308,7 @@ class DailyLogTab extends StatelessWidget {
             children: [
               Icon(icon, size: 15, color: iconColor),
               const SizedBox(width: 6),
-              Text(title, style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white60 : Colors.grey[700], fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+              Expanded(child: Text(title, style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white60 : Colors.grey[700], fontWeight: FontWeight.bold, fontFamily: 'Cairo'), overflow: TextOverflow.ellipsis)),
             ],
           ),
           const SizedBox(height: 6),
@@ -285,8 +325,12 @@ class DailyLogTab extends StatelessWidget {
 
   Widget _buildMinimalistDetailRow(IconData icon, String label, String value, {bool isBold = false}) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 17, color: isDarkMode ? accentGold : primaryColor.withOpacity(0.6)),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(icon, size: 17, color: isDarkMode ? accentGold : primaryColor.withOpacity(0.6)),
+        ),
         const SizedBox(width: 8),
         Text("$label: ", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white60 : Colors.grey[700], fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
         Expanded(
