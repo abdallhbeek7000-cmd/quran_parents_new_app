@@ -33,7 +33,7 @@ class DailyLogTab extends StatelessWidget {
 
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.only(top: 10, bottom: 120), // مساحة للشريط العائم
+      padding: const EdgeInsets.only(top: 10, bottom: 120), 
       itemCount: sortedDocs.length,
       itemBuilder: (context, index) {
         var session = sortedDocs[index].data() as Map<String, dynamic>;
@@ -179,12 +179,13 @@ class DailyLogTab extends StatelessWidget {
     String fRev = session['farReview']?.toString().trim() ?? (isCompletedStudent ? (session['review']?.toString().trim() ?? '') : '');
     String sight = session['readingBySight']?.toString().trim() ?? '';
 
-    // 🚀 جلب بيانات الواجب
+    // 🚀 جلب بيانات الواجب الثلاثية
     String nHw = session['newHomework']?.toString().trim() ?? '';
-    String rHw = session['reviewHomework']?.toString().trim() ?? '';
+    String nRevHw = session['newReviewHomework']?.toString().trim() ?? '';
+    String oRevHw = session['oldReviewHomework']?.toString().trim() ?? '';
     String oldHw = session['homework']?.toString().trim() ?? '';
 
-    // 🚀 بناء مربعات الإنجاز بشكل ديناميكي (لا يظهر المربع إذا كان فارغاً)
+    // 🚀 بناء مربعات الإنجاز بشكل ديناميكي
     List<Widget> activeBoxes = [];
     if (isCompletedStudent && fRev.isNotEmpty) {
       activeBoxes.add(_buildGridInfoBox(Icons.verified_user_rounded, "المقدار المسموع من مراجعة الختمة الشاملة", fRev, isDarkMode ? Colors.tealAccent : Colors.teal));
@@ -236,7 +237,7 @@ class DailyLogTab extends StatelessWidget {
                   _buildMinimalistDetailRow(Icons.person_pin_rounded, "مشرف الجلسة", supervisorName, isBold: true),
                   Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
                   
-                  // 🚀 عرض المربعات الديناميكية 2 في كل سطر
+                  // 🚀 عرض المربعات الديناميكية للإنجاز 
                   if (activeBoxes.isNotEmpty) ...[
                     for (int i = 0; i < activeBoxes.length; i += 2)
                       Padding(
@@ -255,15 +256,34 @@ class DailyLogTab extends StatelessWidget {
                     Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
                   ],
                   
-                  // 🚀 عرض حقول الواجب بذكاء
-                  if (nHw.isNotEmpty || rHw.isNotEmpty) ...[
-                    if (nHw.isNotEmpty) 
-                      _buildMinimalistDetailRow(Icons.edit_document, "واجب الحفظ الجديد القادم", nHw),
-                    if (nHw.isNotEmpty && rHw.isNotEmpty) const SizedBox(height: 8),
-                    if (rHw.isNotEmpty) 
-                      _buildMinimalistDetailRow(Icons.import_contacts_rounded, isCompletedStudent ? "المقدار المطلوب للمرة القادمة" : "واجب المراجعة القادم", rHw),
-                  ] else if (oldHw.isNotEmpty) ...[
-                    _buildMinimalistDetailRow(Icons.edit_note_rounded, isCompletedStudent ? "المقدار المطلوب للمرة القادمة" : "الواجب المعطى لليوم القادم", oldHw),
+                  // 🚀 صندوق الواجب المستقل والأنيق لتطبيق الأهل
+                  if (nHw.isNotEmpty || nRevHw.isNotEmpty || oRevHw.isNotEmpty || oldHw.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: accentGold.withOpacity(isDarkMode ? 0.05 : 0.05),
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: accentGold.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.menu_book, size: 16, color: accentGold),
+                              const SizedBox(width: 6),
+                              Text(isCompletedStudent ? "المقدار المطلوب للمرة القادمة:" : "الواجب القادم:", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white70 : Colors.black87, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          if (nHw.isNotEmpty) _buildHomeworkRow("حفظ جديد", nHw),
+                          if (nRevHw.isNotEmpty) _buildHomeworkRow("مراجعة جديد", nRevHw),
+                          if (oRevHw.isNotEmpty) _buildHomeworkRow(isCompletedStudent ? "مراجعة الختمة" : "مراجعة قديم", oRevHw),
+                          if (oldHw.isNotEmpty && nHw.isEmpty && nRevHw.isEmpty && oRevHw.isEmpty) _buildHomeworkRow("الواجب", oldHw),
+                        ],
+                      ),
+                    ),
+                    Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
                   ],
 
                   const SizedBox(height: 8),
@@ -288,6 +308,20 @@ class DailyLogTab extends StatelessWidget {
             )
           ],
         ),
+      ),
+    );
+  }
+
+  // 🚀 أداة فرعية لعرض سطور الواجب بشكل مرتب
+  Widget _buildHomeworkRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4, right: 22),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("• $label: ", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white54 : Colors.black54, fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+          Expanded(child: Text(value, style: TextStyle(fontSize: 13, color: isDarkMode ? Colors.white : Colors.black87, fontFamily: 'Cairo', fontWeight: FontWeight.bold))),
+        ],
       ),
     );
   }

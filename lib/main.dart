@@ -6,12 +6,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart'; 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:provider/provider.dart'; // 🎯 لقراءة وتفعيل الثيم
+import 'package:flutter_localizations/flutter_localizations.dart'; // 🚀 استدعاء مكتبة اللغات لقلب التطبيق عربي (RTL)
 import 'services/theme_provider.dart'; // 🎯 استدعاء مزود السمة
 import 'firebase_options.dart'; 
 import 'pages/login_page.dart';
-import 'package:quran_parents_new/pages/parent_home_page.dart';import 'pages/onboarding_page.dart'; // 🎯 استدعاء صفحة الترحيب الجديدة
-
-
+import 'package:quran_parents_new/pages/parent_home_page.dart';
+import 'pages/onboarding_page.dart'; // 🎯 استدعاء صفحة الترحيب الجديدة
 
 // تعريف أداة الإشعارات المحلية كمتغير عام ليكون متاحاً في كل مكان
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -132,6 +132,17 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       title: 'معهد الشيخ سعيد العبدالله',
       themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      
+      // 🚀 الأسطر السحرية لقلب التطبيق بالكامل ليصبح عربي (RTL)
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ar', 'AE'), // 👈 دعم اللغة العربية
+      ],
+      locale: const Locale('ar', 'AE'), // 👈 فرض العربية كلغة أساسية وإجبارية
       
       // ☀️ السمة النهارية (الزجاج الفاتح)
       theme: ThemeData(

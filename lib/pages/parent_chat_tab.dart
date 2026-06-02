@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/notification_service.dart'; // 🎯 استدعاء مركز الإشعارات الجديد (تأكد من المسار حسب مشروعك)
+import '../services/notification_service.dart'; 
 
 class ParentChatTab extends StatefulWidget {
   final String studentId;
@@ -31,6 +31,21 @@ class _ParentChatTabState extends State<ParentChatTab> {
 
   String get chatId => "${widget.studentId}_${widget.supervisorId}";
 
+  @override
+  void initState() {
+    super.initState();
+    _clearUnreadBadge();
+  }
+
+  // 🎯 تصفير العداد بمجرد أن يفتح الأهل المحادثة
+  void _clearUnreadBadge() async {
+    if (widget.supervisorId.isNotEmpty) {
+      await FirebaseFirestore.instance.collection('chats').doc(chatId).update({
+        'unreadByParent': 0,
+      }).catchError((e) => print("لم يتم العثور على محادثة سابقة لتصفير العداد."));
+    }
+  }
+
   // 🎯 دالة تنسيق الوقت
   String _formatTime(Timestamp? timestamp) {
     if (timestamp == null) return '';
@@ -48,7 +63,7 @@ class _ParentChatTabState extends State<ParentChatTab> {
     _messageController.clear();
     _scrollToBottom();
 
-    // 1. حفظ الرسالة في قاعدة البيانات
+    // 1. حفظ الرسالة في قاعدة البيانات مع حقل التفاعلات
     await FirebaseFirestore.instance
         .collection('chats')
         .doc(chatId)
@@ -58,9 +73,10 @@ class _ParentChatTabState extends State<ParentChatTab> {
       'senderType': 'parent',
       'text': text,
       'timestamp': FieldValue.serverTimestamp(),
+      'reactions': {}, // 🚀 تجهيز حقل التفاعلات
     });
 
-    // 2. تحديث بيانات المحادثة الأساسية
+    // 2. تحديث بيانات المحادثة الأساسية (وزيادة عداد المشرف)
     await FirebaseFirestore.instance.collection('chats').doc(chatId).set({
       'studentId': widget.studentId,
       'studentName': widget.studentName,
@@ -69,13 +85,13 @@ class _ParentChatTabState extends State<ParentChatTab> {
       'lastMessage': text,
       'lastMessageTime': FieldValue.serverTimestamp(),
       'lastSenderType': 'parent',
-      'unreadBySupervisor': FieldValue.increment(1),
+      'unreadBySupervisor': FieldValue.increment(1), 
     }, SetOptions(merge: true));
 
-    // 🚀 3. إرسال الإشعار للمشرف باستخدام النظام الجديد (V1)
+    // 3. إرسال الإشعار للمشرف
     if (mounted) {
       await NotificationService.sendAndSaveNotification(
-        studentId: widget.supervisorId, // نمرر آي دي المشرف لكي يبحث عنه الجوكر
+        studentId: widget.supervisorId,
         title: "💬 رسالة من ولي أمر (${widget.studentName})",
         body: text,
         type: "chat",
@@ -94,6 +110,58 @@ class _ParentChatTabState extends State<ParentChatTab> {
     }
   }
 
+  // 🚀 دالة إظهار قائمة التفاعلات (الإيموجي) الزجاجية للأهل عند الضغط المطول
+  void _showReactionMenu(BuildContext context, String messageId) {
+    final List<String> emojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 15),
+                decoration: BoxDecoration(
+                  color: widget.isDarkMode ? const Color(0xff1e293b).withOpacity(0.8) : Colors.white.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: widget.isDarkMode ? Colors.white24 : Colors.white, width: 1.5),
+                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20, spreadRadius: 5)],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: emojis.map((emoji) {
+                    return GestureDetector(
+                      onTap: () {
+                        // 🚀 حفظ تفاعل الأهل باسمهم
+                        FirebaseFirestore.instance
+                            .collection('chats')
+                            .doc(chatId)
+                            .collection('messages')
+                            .doc(messageId)
+                            .set({
+                          'reactions': {
+                            widget.studentId: emoji 
+                          }
+                        }, SetOptions(merge: true));
+                        Navigator.pop(context);
+                      },
+                      child: Text(emoji, style: const TextStyle(fontSize: 32)),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.supervisorId.isEmpty) {
@@ -107,7 +175,7 @@ class _ParentChatTabState extends State<ParentChatTab> {
 
     return Column(
       children: [
-        // 💬 رسالة ترحيبية زجاجية
+        // 💬 رسالة ترحيبية زجاجية بالعلوي
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: ClipRRect(
@@ -146,95 +214,176 @@ class _ParentChatTabState extends State<ParentChatTab> {
 
         // 📝 منطقة عرض الرسائل
         Expanded(
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('chats')
-                .doc(chatId)
-                .collection('messages')
-                .orderBy('timestamp', descending: true)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return Center(
-                  child: Text("لا توجد رسائل سابقة. ابدأ المحادثة الآن!", 
-                    style: TextStyle(fontFamily: 'Cairo', color: widget.isDarkMode ? Colors.white54 : Colors.black54)),
-                );
+          child: StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance.collection('chats').doc(chatId).snapshots(),
+            builder: (context, chatSnapshot) {
+              bool isReadBySupervisor = false;
+              if (chatSnapshot.hasData && chatSnapshot.data!.exists) {
+                final chatData = chatSnapshot.data!.data() as Map<String, dynamic>;
+                isReadBySupervisor = (chatData['unreadBySupervisor'] ?? 0) == 0;
               }
 
-              final messages = snapshot.data!.docs;
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('chats')
+                    .doc(chatId)
+                    .collection('messages')
+                    .orderBy('timestamp', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(
+                      child: Text("لا توجد رسائل سابقة. ابدأ المحادثة الآن!", 
+                        style: TextStyle(fontFamily: 'Cairo', color: widget.isDarkMode ? Colors.white54 : Colors.black54)),
+                    );
+                  }
 
-              return ListView.builder(
-                controller: _scrollController,
-                reverse: true,
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final msg = messages[index].data() as Map<String, dynamic>;
-                  final isMe = msg['senderType'] == 'parent';
-                  final String timeString = _formatTime(msg['timestamp'] as Timestamp?);
+                  final messages = snapshot.data!.docs;
 
-                  return Align(
-                    alignment: isMe ? Alignment.centerLeft : Alignment.centerRight,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 15),
-                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.only(
-                          topLeft: const Radius.circular(20),
-                          topRight: const Radius.circular(20),
-                          bottomLeft: Radius.circular(isMe ? 0 : 20),
-                          bottomRight: Radius.circular(isMe ? 20 : 0),
-                        ),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: isMe 
-                                  ? primaryColor.withOpacity(0.75) 
-                                  : (widget.isDarkMode ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.7)),
-                              border: Border.all(
-                                color: isMe 
-                                    ? Colors.white.withOpacity(0.2) 
-                                    : (widget.isDarkMode ? Colors.white24 : Colors.white.withOpacity(0.8)),
-                                width: 1.2,
+                  return ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final msgDoc = messages[index];
+                      final msg = msgDoc.data() as Map<String, dynamic>;
+                      final isMe = msg['senderType'] == 'parent';
+                      final String timeString = _formatTime(msg['timestamp'] as Timestamp?);
+
+                      // 🚀 قراءة التفاعلات إن وجدت
+                      final Map<String, dynamic> reactions = msg['reactions'] ?? {};
+                      final List<String> displayEmojis = reactions.values.map((e) => e.toString()).toSet().toList();
+
+                      return Align(
+                        alignment: isMe ? Alignment.centerLeft : Alignment.centerRight,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 22), // مسافة إضافية لتتسع للتفاعل
+                          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              // 🚀 فقاعة الرسالة (مع GestureDetector للضغطة المطولة)
+                              GestureDetector(
+                                onLongPress: () => _showReactionMenu(context, msgDoc.id),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(widget.isDarkMode ? 0.2 : 0.05),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      )
+                                    ]
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: const Radius.circular(22),
+                                      topRight: const Radius.circular(22),
+                                      bottomLeft: Radius.circular(isMe ? 5 : 22),
+                                      bottomRight: Radius.circular(isMe ? 22 : 5),
+                                    ),
+                                    child: BackdropFilter(
+                                      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                                      child: Container(
+                                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: isMe 
+                                                ? [primaryColor.withOpacity(0.85), primaryColor.withOpacity(0.7)] 
+                                                : (widget.isDarkMode ? [Colors.white.withOpacity(0.15), Colors.white.withOpacity(0.05)] : [Colors.white.withOpacity(0.9), Colors.white.withOpacity(0.7)]),
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          border: Border.all(
+                                            color: isMe 
+                                                ? Colors.white.withOpacity(0.25) 
+                                                : (widget.isDarkMode ? Colors.white.withOpacity(0.15) : Colors.white.withOpacity(0.8)),
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: isMe ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+                                          children: [
+                                            Text(
+                                              msg['text'] ?? '',
+                                              style: TextStyle(
+                                                fontFamily: 'Cairo',
+                                                color: isMe ? Colors.white : (widget.isDarkMode ? Colors.white : Colors.black87),
+                                                fontSize: 14.5,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  timeString,
+                                                  style: TextStyle(
+                                                    fontFamily: 'Cairo',
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isMe ? Colors.white70 : (widget.isDarkMode ? Colors.white54 : Colors.black54),
+                                                  ),
+                                                ),
+                                                if (isMe) ...[
+                                                  const SizedBox(width: 5),
+                                                  Icon(
+                                                    Icons.done_all_rounded,
+                                                    size: 15,
+                                                    color: isReadBySupervisor ? (widget.isDarkMode ? goldColor : Colors.lightBlueAccent) : Colors.white38,
+                                                  ),
+                                                ]
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: isMe ? CrossAxisAlignment.start : CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  msg['text'] ?? '',
-                                  style: TextStyle(
-                                    fontFamily: 'Cairo',
-                                    color: isMe ? Colors.white : (widget.isDarkMode ? Colors.white : Colors.black87),
-                                    fontSize: 14,
-                                    height: 1.4,
+                              
+                              // 🚀 شارة التفاعل (تظهر فقط إذا كان هناك تفاعل)
+                              if (displayEmojis.isNotEmpty)
+                                Positioned(
+                                  bottom: -14,
+                                  left: isMe ? 15 : null,
+                                  right: isMe ? null : 15,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: BackdropFilter(
+                                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: widget.isDarkMode ? const Color(0xff1e293b).withOpacity(0.9) : Colors.white.withOpacity(0.9),
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(color: widget.isDarkMode ? Colors.white24 : Colors.grey.shade300, width: 1.2),
+                                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+                                        ),
+                                        child: Text(
+                                          displayEmojis.join(' '), 
+                                          style: const TextStyle(fontSize: 14),
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  timeString,
-                                  style: TextStyle(
-                                    fontFamily: 'Cairo',
-                                    fontSize: 10,
-                                    color: isMe ? Colors.white60 : (widget.isDarkMode ? Colors.white54 : Colors.black54),
-                                  ),
-                                ),
-                              ],
-                            ),
+                            ],
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   );
                 },
               );
-            },
+            }
           ),
         ),
 
