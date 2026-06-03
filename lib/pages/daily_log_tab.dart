@@ -46,7 +46,16 @@ class DailyLogTab extends StatelessWidget {
     final String sessionDate = session['date']?.toString() ?? 'بدون تاريخ';
     final bool isAbsent = session['absent'] ?? false;
     final bool isExam = session['isExam'] ?? false; 
-    final String supervisorName = session['supervisorName'] ?? 'غير محدد';
+    
+    // 🚀 معالجة تعدد المشرفين للواجهة (دعم المصفوفة الجديدة)
+    List<dynamic>? supNamesList = session['supervisorNames'];
+    final String supervisorName = (supNamesList != null && supNamesList.isNotEmpty) 
+        ? supNamesList.join(' ، ') 
+        : (session['supervisorName'] ?? 'غير محدد');
+        
+    final String supervisorLabel = (supNamesList != null && supNamesList.length > 1) 
+        ? "المشرفين" 
+        : "المشرف المسجِّل";
 
     if (isAbsent) {
       return Container(
@@ -74,7 +83,7 @@ class DailyLogTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildMinimalistDetailRow(Icons.person_outline_rounded, "المشرف المسجِّل", supervisorName, isBold: true),
+                    _buildMinimalistDetailRow(Icons.person_outline_rounded, supervisorLabel, supervisorName, isBold: true),
                     const SizedBox(height: 10),
                     _buildMinimalistDetailRow(Icons.warning_amber_rounded, "نوع الغياب", session['absenceType'] == "" ? "بدون عذر" : (session['absenceType'] ?? 'بدون عذر')),
                     if (session['absenceReason'] != null && session['absenceReason'].toString().trim().isNotEmpty) ...[
@@ -123,7 +132,7 @@ class DailyLogTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildMinimalistDetailRow(Icons.person_outline_rounded, "المشرف المسجِّل", supervisorName, isBold: true),
+                    _buildMinimalistDetailRow(Icons.person_outline_rounded, supervisorLabel, supervisorName, isBold: true),
                     const SizedBox(height: 15),
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -141,6 +150,7 @@ class DailyLogTab extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text("النتيجة الرسمية لاختبار الطالب", style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white60 : Colors.grey, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                              const SizedBox(height: 4),
                               Text("$score / 100", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: examColor, fontFamily: 'Cairo')),
                             ],
                           )
@@ -196,6 +206,10 @@ class DailyLogTab extends StatelessWidget {
     }
     if (sight.isNotEmpty) activeBoxes.add(_buildGridInfoBox(Icons.chrome_reader_mode_rounded, "قراءة نظراً", sight, Colors.indigoAccent));
 
+    final String regularSupervisorLabel = (supNamesList != null && supNamesList.length > 1) 
+        ? "مشرفين الجلسة" 
+        : "مشرف الجلسة";
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: _buildGlassContainer(
@@ -234,7 +248,7 @@ class DailyLogTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildMinimalistDetailRow(Icons.person_pin_rounded, "مشرف الجلسة", supervisorName, isBold: true),
+                  _buildMinimalistDetailRow(Icons.person_pin_rounded, regularSupervisorLabel, supervisorName, isBold: true),
                   Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
                   
                   // 🚀 عرض المربعات الديناميكية للإنجاز 
