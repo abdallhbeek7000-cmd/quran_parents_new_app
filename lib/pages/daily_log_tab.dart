@@ -326,7 +326,6 @@ class DailyLogTab extends StatelessWidget {
     );
   }
 
-  // 🚀 أداة فرعية لعرض سطور الواجب بشكل مرتب
   Widget _buildHomeworkRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4, right: 22),
@@ -340,6 +339,7 @@ class DailyLogTab extends StatelessWidget {
     );
   }
 
+  // 🚀 إزالة القيود من الأسطر ليتمدد المربع بحرية عند وجود إضافات (+)
   Widget _buildGridInfoBox(IconData icon, String title, String val, Color iconColor) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -362,9 +362,8 @@ class DailyLogTab extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             val.trim().isEmpty ? '---' : val,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo'),
+            // 🚀 تمت إزالة maxLines و overflow لتتمدد المواضع بحرية
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo', height: 1.5),
           )
         ],
       ),

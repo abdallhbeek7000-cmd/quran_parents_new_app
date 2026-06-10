@@ -82,7 +82,7 @@ class NotificationService {
           print("Access token generation failed.");
           if (context != null && context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(backgroundColor: Colors.red, content: Text("فشل في قراءة ملف المفتاح السري.")),
+              const SnackBar(backgroundColor: Colors.red, content: Text("فشل في قراءة ملف المفتاح السري.", style: TextStyle(fontFamily: 'Cairo'))),
             );
           }
           return;
@@ -103,8 +103,8 @@ class NotificationService {
               'title': title,
               'body': body,
             },
+            // 🚀 الداتا التي يستلمها التطبيق عند الفتح بدون click_action المزعج
             'data': {
-              'click_action': 'FLUTTER_NOTIFICATION_CLICK',
               'studentId': studentId,
               'type': type,
             },
@@ -113,7 +113,7 @@ class NotificationService {
               'notification': {
                 'channel_id': 'high_importance_channel',
                 'sound': 'default',
-                'click_action': 'FLUTTER_NOTIFICATION_CLICK',
+                // 🛑 تم حذف click_action من هنا ليفتح التطبيق تلقائياً عند الضغط
               }
             },
           }
@@ -123,12 +123,6 @@ class NotificationService {
         
         if (response.statusCode == 200) {
           print("Push Notification fired successfully to $targetCollection! 🔔🚀");
-          if (context != null && context.mounted) {
-            // يمكنك تفعيل هذه الرسالة إن أردت
-            // ScaffoldMessenger.of(context).showSnackBar(
-            //   const SnackBar(backgroundColor: Colors.green, content: Text("🚀 تم إرسال الإشعار بنجاح!")),
-            // );
-          }
         } else {
           print("FCM V1 Broadcast Error: ${response.statusCode} - ${response.body}");
           if (context != null && context.mounted) {
@@ -136,7 +130,7 @@ class NotificationService {
               SnackBar(
                 backgroundColor: Colors.red, 
                 duration: const Duration(seconds: 10),
-                content: Text("❌ خطأ من جوجل: ${response.statusCode}\n${response.body}")
+                content: Text("❌ خطأ من جوجل: ${response.statusCode}\n${response.body}", style: const TextStyle(fontFamily: 'Cairo'))
               ),
             );
           }
@@ -148,7 +142,7 @@ class NotificationService {
       print("Error inside V1 Notification Service: $e");
       if (context != null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: Colors.orange, content: Text("⚠️ خطأ في التطبيق: $e")),
+          SnackBar(backgroundColor: Colors.orange, content: Text("⚠️ خطأ في التطبيق: $e", style: const TextStyle(fontFamily: 'Cairo'))),
         );
       }
     }
