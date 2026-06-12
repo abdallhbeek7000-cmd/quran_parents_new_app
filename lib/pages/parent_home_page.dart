@@ -10,6 +10,7 @@ import 'login_page.dart';
 import 'update_checker.dart'; 
 import 'notifications_page.dart'; 
 
+// 🎯 استدعاء التبويبات المفصولة
 import 'summary_tab.dart';
 import 'daily_log_tab.dart';
 import 'honor_board_tab.dart';
@@ -126,6 +127,121 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     }
   }
 
+  // 🚀 نافذة طلب إذن الغياب المدمجة
+  void _showLeaveRequestDialog(BuildContext context, bool isDarkMode, String studentId, String studentName, String supervisorId) {
+    final TextEditingController reasonController = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: Colors.transparent,
+              contentPadding: EdgeInsets.zero,
+              content: ClipRRect(
+                borderRadius: BorderRadius.circular(25),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? const Color(0xff1e293b).withOpacity(0.9) : Colors.white.withOpacity(0.9),
+                      border: Border.all(color: isDarkMode ? Colors.white24 : Colors.white, width: 1.5),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.event_busy_rounded, size: 50, color: Colors.orangeAccent),
+                        const SizedBox(height: 10),
+                        Text("طلب إذن غياب", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo')),
+                        const SizedBox(height: 15),
+                        
+                        // اختيار التاريخ
+                        ListTile(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                          tileColor: isDarkMode ? Colors.black26 : Colors.grey.shade100,
+                          leading: Icon(Icons.calendar_month_rounded, color: accentGold),
+                          title: Text("تاريخ الغياب: ${selectedDate.year}-${selectedDate.month}-${selectedDate.day}", style: TextStyle(fontFamily: 'Cairo', fontSize: 13, color: isDarkMode ? Colors.white : Colors.black87)),
+                          onTap: () async {
+                            final DateTime? picked = await showDatePicker(
+                              context: context, initialDate: selectedDate, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 30)),
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: ColorScheme.light(primary: accentGold, onPrimary: Colors.white, onSurface: isDarkMode ? Colors.white : primaryColor),
+                                    dialogBackgroundColor: isDarkMode ? const Color(0xff1e293b) : Colors.white,
+                                  ),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (picked != null) setDialogState(() => selectedDate = picked);
+                          },
+                        ),
+                        const SizedBox(height: 15),
+
+                        // حقل السبب
+                        TextField(
+                          controller: reasonController,
+                          maxLines: 3,
+                          style: TextStyle(fontFamily: 'Cairo', color: isDarkMode ? Colors.white : Colors.black87, fontWeight: FontWeight.bold),
+                          decoration: InputDecoration(
+                            hintText: "اكتب سبب الغياب هنا...",
+                            hintStyle: TextStyle(color: isDarkMode ? Colors.white54 : Colors.black54, fontFamily: 'Cairo', fontSize: 13),
+                            filled: true,
+                            fillColor: isDarkMode ? Colors.black26 : Colors.grey.shade100,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // زر الإرسال
+                        SizedBox(
+                          width: double.infinity, height: 45,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: accentGold,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                            ),
+                            onPressed: () async {
+                              if (reasonController.text.trim().isEmpty) return;
+                              
+                              Navigator.pop(context); // إغلاق النافذة
+                              
+                              // حفظ الطلب في الداتا بيز
+                              await FirebaseFirestore.instance.collection('leave_requests').add({
+                                'studentId': studentId,
+                                'studentName': studentName,
+                                'supervisorId': supervisorId,
+                                'reason': reasonController.text.trim(),
+                                'date': "${selectedDate.year}-${selectedDate.month}-${selectedDate.day}",
+                                'status': 'pending', 
+                                'timestamp': FieldValue.serverTimestamp(),
+                              });
+
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(backgroundColor: Colors.green, content: Text("✅ تم إرسال طلب الغياب للمشرف بانتظار الموافقة", style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold))),
+                                );
+                              }
+                            },
+                            child: const Text("إرسال الطلب", style: TextStyle(color: Colors.white, fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+        );
+      }
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = widget.student.data() as Map<String, dynamic>;
@@ -153,8 +269,14 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
               tooltip: 'تبديل الأبناء',
               onPressed: () => _showLiquidSiblingSwitcher(isDarkMode),
             ),
+            
+          // 🚀 زر طلب الاستئذان المضاف للأهل
+          IconButton(
+            icon: Icon(Icons.event_busy_rounded, color: Colors.orangeAccent),
+            tooltip: 'طلب إذن غياب',
+            onPressed: () => _showLeaveRequestDialog(context, isDarkMode, studentId, studentName, supervisorId),
+          ),
           
-          // 🚀 زر تغيير الثيم (النهاري / الليلي)
           IconButton(
             icon: Icon(isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded, color: isDarkMode ? goldColor : primaryColor),
             tooltip: isDarkMode ? 'تفعيل الوضع النهاري' : 'تفعيل الوضع الليلي',
