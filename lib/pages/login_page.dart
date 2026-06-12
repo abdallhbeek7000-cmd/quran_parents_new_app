@@ -1,11 +1,11 @@
 import 'dart:io';
-import 'dart:ui'; // 🎯 ضرورية لتأثير الزجاج البلوري (Blur)
-import 'dart:math' as math; // 🎯 ضروري لحسابات رسم الزخارف الهندسية بالخلفية
+import 'dart:ui'; 
+import 'dart:math' as math; 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'parent_home_page.dart';
-import 'onboarding_page.dart'; // 🎯 تم استدعاء صفحة الترحيب هنا
+import 'onboarding_page.dart'; 
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -14,7 +14,7 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
   final TextEditingController _serialController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   bool _isLoading = false;
@@ -23,16 +23,33 @@ class _LoginPageState extends State<LoginPage> {
   final Color primaryColor = const Color(0xff425c75);
   final Color goldColor = const Color(0xffD4AF37);
 
+  // 🚀 محرك الأنيميشن للدوائر العائمة
+  late AnimationController _bgController;
+  late Animation<double> _bgAnimation;
+
   @override
   void initState() {
     super.initState();
+    
+    // 🚀 تشغيل محرك الأنيميشن 
+    _bgController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
+    _bgAnimation = Tween<double>(begin: -10, end: 20).animate(CurvedAnimation(parent: _bgController, curve: Curves.easeInOutSine));
+
     _checkSavedLogin(); 
+  }
+
+  @override
+  void dispose() {
+    _bgController.dispose();
+    _serialController.dispose();
+    _phoneController.dispose();
+    super.dispose();
   }
 
   void _checkSavedLogin() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? savedSerial = prefs.getString('saved_student_serial');
-    final bool hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false; // 🎯 قراءة حالة الشاشة الترحيبية
+    final bool hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false; 
 
     if (savedSerial != null && savedSerial.isNotEmpty) {
       setState(() {
@@ -67,7 +84,7 @@ class _LoginPageState extends State<LoginPage> {
             MaterialPageRoute(
               builder: (context) => hasSeenOnboarding
                   ? ParentHomePage(student: matchingStudents.first)
-                  : OnboardingPage(student: matchingStudents.first), // 🎯 التوجيه الذكي
+                  : OnboardingPage(student: matchingStudents.first), 
             ),
           );
           return;
@@ -157,7 +174,7 @@ class _LoginPageState extends State<LoginPage> {
       if (isPhoneValid) {
         final SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('saved_student_serial', serialInput);
-        final bool hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false; // 🎯 قراءة الحالة بعد تسجيل الدخول اليدوي
+        final bool hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false; 
 
         if (mounted) {
           Navigator.pushReplacement(
@@ -165,7 +182,7 @@ class _LoginPageState extends State<LoginPage> {
             MaterialPageRoute(
               builder: (context) => hasSeenOnboarding
                   ? ParentHomePage(student: studentDoc)
-                  : OnboardingPage(student: studentDoc), // 🎯 التوجيه الذكي
+                  : OnboardingPage(student: studentDoc), 
             ),
           );
         }
@@ -214,31 +231,42 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
 
-          // 📐 2. رسم زخرفة هندسية إسلامية معاصرة هادئة جداً وشفافة بالخلفية لإبراز هيبة علوم القرآن
+          // 📐 2. رسم زخرفة هندسية إسلامية معاصرة هادئة جداً وشفافة بالخلفية 
           Positioned.fill(
             child: CustomPaint(
               painter: IslamicPatternPainter(
-                color: primaryColor.withOpacity(0.025), // هادئة جداً لمنع تشتيت العين
+                color: primaryColor.withOpacity(0.025), 
               ),
             ),
           ),
 
-          // 🪐 3. هالات ضوئية عائمة خلف كرت التسجيل لتعطي طابع الأبعاد (Elegant Orbs)
-          Positioned(
-            top: MediaQuery.of(context).size.height * 0.1,
-            left: -50,
-            child: CircleAvatar(
-              radius: 130,
-              backgroundColor: primaryColor.withOpacity(0.06),
-            ),
-          ),
-          Positioned(
-            bottom: MediaQuery.of(context).size.height * 0.1,
-            right: -60,
-            child: CircleAvatar(
-              radius: 150,
-              backgroundColor: goldColor.withOpacity(0.06),
-            ),
+          // 🪐 3. هالات ضوئية عائمة خلف كرت التسجيل لتعطي طابع الأبعاد مربوطة بالأنيميشن
+          AnimatedBuilder(
+            animation: _bgAnimation,
+            builder: (context, child) {
+              return Stack(
+                children: [
+                  Positioned(
+                    top: (MediaQuery.of(context).size.height * 0.1) + _bgAnimation.value,
+                    left: -50 - (_bgAnimation.value / 2),
+                    child: Container(
+                      width: 260,
+                      height: 260,
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: primaryColor.withOpacity(0.06)),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: (MediaQuery.of(context).size.height * 0.1) - _bgAnimation.value,
+                    right: -60 + _bgAnimation.value,
+                    child: Container(
+                      width: 300,
+                      height: 300,
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: goldColor.withOpacity(0.06)),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
 
           // 🔐 4. كرت التسجيل والهوية الرقمية بالمنتصف (بستايل Liquid Glass)
@@ -304,7 +332,7 @@ class _LoginPageState extends State<LoginPage> {
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.4), // شفافية الكرت
+                          color: Colors.white.withOpacity(0.4), 
                           borderRadius: BorderRadius.circular(30),
                           border: Border.all(color: Colors.white.withOpacity(0.7), width: 1.5),
                           boxShadow: [
@@ -413,7 +441,7 @@ class _LoginPageState extends State<LoginPage> {
       labelStyle: TextStyle(color: primaryColor.withOpacity(0.7), fontSize: 12, fontFamily: 'Cairo', fontWeight: FontWeight.w600),
       prefixIcon: Icon(icon, color: primaryColor.withOpacity(0.8), size: 18),
       filled: true,
-      fillColor: Colors.white.withOpacity(0.55), // شفافية الحقل لتلائم الزجاج
+      fillColor: Colors.white.withOpacity(0.55), 
       contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -443,7 +471,7 @@ class IslamicPatternPainter extends CustomPainter {
       ..strokeWidth = 0.8
       ..style = PaintingStyle.stroke;
 
-    final double step = 90.0; // موازنة توزيع الأبعاد والزخارف على الشاشة
+    final double step = 90.0; 
     for (double x = 0; x < size.width + step; x += step) {
       for (double y = 0; y < size.height + step; y += step) {
         _draw8PointedStar(canvas, Offset(x, y), 22, paint);
@@ -451,7 +479,6 @@ class IslamicPatternPainter extends CustomPainter {
     }
   }
 
-  // رسم النجمة الثمانية الهندسية الإسلامية بدقة انسيابية
   void _draw8PointedStar(Canvas canvas, Offset center, double radius, Paint paint) {
     final path = Path();
     for (int i = 0; i < 8; i++) {

@@ -10,20 +10,20 @@ class ThemeProvider extends ChangeNotifier {
     _loadTheme();
   }
 
-  // دالة التبديل بين الوضع الليلي والنهاري
+  // 🚀 دالة تبديل الثيم وحفظه في ذاكرة الهاتف
   void toggleTheme() async {
     _isDarkMode = !_isDarkMode;
-    notifyListeners(); // 🎯 تحديث كل شاشات التطبيق فوراً
+    notifyListeners();
     
-    // حفظ اختيار المستخدم حتى لو أغلق التطبيق
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setBool('isDarkMode', _isDarkMode);
+    await prefs.setBool('is_dark_mode', _isDarkMode);
   }
 
-  // دالة قراءة السمة المحفوظة عند فتح التطبيق
+  // 🚀 دالة استرجاع الثيم عند فتح التطبيق
   void _loadTheme() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    _isDarkMode = prefs.getBool('isDarkMode') ?? false;
+    // الوضع النهاري هو الافتراضي (false)، وإذا كان محفوظ مسبقاً بيقرأه
+    _isDarkMode = prefs.getBool('is_dark_mode') ?? false; 
     notifyListeners();
   }
 }

@@ -17,6 +17,19 @@ class DailyLogTab extends StatelessWidget {
   final Color primaryColor = const Color(0xff425c75);
   final Color accentGold = const Color(0xffd4af37);
 
+  // 🚀 دالة المساعدة لتحويل النصوص لتواريخ حقيقية (تم إضافتها هنا)
+  DateTime _parseDate(String dateStr) {
+    try {
+      List<String> parts = dateStr.split('-');
+      if (parts.length == 3) {
+        return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+      }
+    } catch (e) {
+      return DateTime(2000); 
+    }
+    return DateTime(2000);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (sortedDocs.isEmpty) {
@@ -31,12 +44,33 @@ class DailyLogTab extends StatelessWidget {
       );
     }
 
+    // 🚀 تطبيق خوارزمية الترتيب الذكية (الاعتماد على التاريخ الحقيقي ثم الوقت)
+    List<QueryDocumentSnapshot> finalSortedList = List.from(sortedDocs);
+    finalSortedList.sort((a, b) {
+      var dataA = a.data() as Map<String, dynamic>;
+      var dataB = b.data() as Map<String, dynamic>;
+
+      DateTime dateAObj = _parseDate(dataA['date'] ?? '');
+      DateTime dateBObj = _parseDate(dataB['date'] ?? '');
+
+      int dateComparison = dateBObj.compareTo(dateAObj);
+
+      if (dateComparison == 0) {
+        Timestamp? tA = dataA['timestamp'] as Timestamp?;
+        Timestamp? tB = dataB['timestamp'] as Timestamp?;
+        if (tA != null && tB != null) return tB.compareTo(tA);
+        if (tA == null && tB != null) return -1;
+        if (tB == null && tA != null) return 1;
+      }
+      return dateComparison;
+    });
+
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(top: 10, bottom: 120), 
-      itemCount: sortedDocs.length,
+      itemCount: finalSortedList.length,
       itemBuilder: (context, index) {
-        var session = sortedDocs[index].data() as Map<String, dynamic>;
+        var session = finalSortedList[index].data() as Map<String, dynamic>;
         return _buildSessionItem(session);
       },
     );
@@ -47,7 +81,7 @@ class DailyLogTab extends StatelessWidget {
     final bool isAbsent = session['absent'] ?? false;
     final bool isExam = session['isExam'] ?? false; 
     
-    // 🚀 معالجة تعدد المشرفين للواجهة (دعم المصفوفة الجديدة)
+    // 🚀 معالجة تعدد المشرفين للواجهة
     List<dynamic>? supNamesList = session['supervisorNames'];
     final String supervisorName = (supNamesList != null && supNamesList.isNotEmpty) 
         ? supNamesList.join(' ، ') 
@@ -73,7 +107,13 @@ class DailyLogTab extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.redAccent.shade100 : Colors.red.shade900, fontFamily: 'Cairo', fontSize: 13)),
+                    Row(
+                      children: [
+                        Icon(Icons.event_busy, size: 16, color: Colors.redAccent),
+                        const SizedBox(width: 8),
+                        Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.redAccent.shade100 : Colors.red.shade900, fontFamily: 'Cairo', fontSize: 13)),
+                      ],
+                    ),
                     _buildCustomBadge("غائب ❌", isDarkMode ? Colors.white : Colors.red.shade700, Colors.redAccent.withOpacity(isDarkMode ? 0.4 : 0.2)),
                   ],
                 ),
@@ -122,7 +162,13 @@ class DailyLogTab extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? examColor.withOpacity(0.8) : examColor, fontFamily: 'Cairo', fontSize: 13)),
+                    Row(
+                      children: [
+                        Icon(Icons.workspace_premium, size: 16, color: examColor),
+                        const SizedBox(width: 8),
+                        Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? examColor.withOpacity(0.8) : examColor, fontFamily: 'Cairo', fontSize: 13)),
+                      ],
+                    ),
                     _buildCustomBadge("جلسة اختبار 📝", isDarkMode ? Colors.white : examColor, examColor.withOpacity(isDarkMode ? 0.4 : 0.2)),
                   ],
                 ),
@@ -170,18 +216,11 @@ class DailyLogTab extends StatelessWidget {
       );
     }
 
-    // 🚀 جلب التقييمات بذكاء للحلقات العادية
-    String memRating = session['memorizationRating'] ?? "";
-    String revRating = session['reviewRating'] ?? "";
-    
-    if (memRating.isEmpty && session['rating'] != null && session['rating'].toString().isNotEmpty && session['newMemorization'] != null && session['newMemorization'].toString().isNotEmpty) {
-      memRating = session['rating'];
-    }
-    if (revRating.isEmpty && session['rating'] != null && session['rating'].toString().isNotEmpty && !isCompletedStudent && memRating.isEmpty) {
-      revRating = session['rating'];
-    } else if (revRating.isEmpty && session['rating'] != null && session['rating'].toString().isNotEmpty && isCompletedStudent) {
-      revRating = session['rating']; 
-    }
+    // 🚀 جلب التقييمات الثلاثة المنفصلة بذكاء للحلقات العادية
+    String memRating = session['memorizationRating'] ?? session['rating'] ?? "";
+    String newRevRating = session['newReviewRating'] ?? session['reviewRating'] ?? session['rating'] ?? "";
+    String oldRevRating = session['oldReviewRating'] ?? session['reviewRating'] ?? session['rating'] ?? "";
+    String revRatingLegacy = session['reviewRating'] ?? session['rating'] ?? "";
 
     // 🚀 جلب بيانات الإنجاز
     String nMemo = session['newMemorization']?.toString().trim() ?? '';
@@ -215,27 +254,37 @@ class DailyLogTab extends StatelessWidget {
       child: _buildGlassContainer(
         child: Column(
           children: [
+            // 🚀 الـ Header الذكي (التاريخ في سطر والتقييمات في سطر مستقل مع Wrap)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: isDarkMode ? Colors.white.withOpacity(0.05) : primaryColor.withOpacity(0.05),
                 borderRadius: const BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo', fontSize: 13)),
                   Row(
                     children: [
-                      if (isCompletedStudent && revRating.isNotEmpty)
-                        _buildCustomBadge("مراجعة الختمة: $revRating", isDarkMode ? Colors.white : _getRatingColor(revRating), _getRatingColor(revRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
+                      Icon(Icons.calendar_today, size: 16, color: isDarkMode ? accentGold : primaryColor),
+                      const SizedBox(width: 8),
+                      Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo', fontSize: 13)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      if (isCompletedStudent && revRatingLegacy.isNotEmpty)
+                        _buildCustomBadge("مراجعة الختمة: $revRatingLegacy", isDarkMode ? Colors.white : _getRatingColor(revRatingLegacy), _getRatingColor(revRatingLegacy).withOpacity(isDarkMode ? 0.4 : 0.2)),
                       if (!isCompletedStudent) ...[
-                        if (memRating.isNotEmpty) ...[
+                        if (nMemo.isNotEmpty && memRating.isNotEmpty)
                           _buildCustomBadge("حفظ: $memRating", isDarkMode ? Colors.white : _getRatingColor(memRating), _getRatingColor(memRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
-                          const SizedBox(width: 5),
-                        ],
-                        if (revRating.isNotEmpty)
-                          _buildCustomBadge("مراجعة: $revRating", isDarkMode ? Colors.white : _getRatingColor(revRating), _getRatingColor(revRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
+                        if (nRev.isNotEmpty && newRevRating.isNotEmpty)
+                          _buildCustomBadge("م.جديد: $newRevRating", isDarkMode ? Colors.white : _getRatingColor(newRevRating), _getRatingColor(newRevRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
+                        if (fRev.isNotEmpty && oldRevRating.isNotEmpty)
+                          _buildCustomBadge("م.قديم: $oldRevRating", isDarkMode ? Colors.white : _getRatingColor(oldRevRating), _getRatingColor(oldRevRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
                       ],
                     ],
                   ),
@@ -326,6 +375,7 @@ class DailyLogTab extends StatelessWidget {
     );
   }
 
+  // 🚀 أداة فرعية لعرض سطور الواجب بشكل مرتب
   Widget _buildHomeworkRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4, right: 22),
@@ -362,7 +412,6 @@ class DailyLogTab extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             val.trim().isEmpty ? '---' : val,
-            // 🚀 تمت إزالة maxLines و overflow لتتمدد المواضع بحرية
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo', height: 1.5),
           )
         ],

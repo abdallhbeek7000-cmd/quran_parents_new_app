@@ -10,11 +10,10 @@ import 'login_page.dart';
 import 'update_checker.dart'; 
 import 'notifications_page.dart'; 
 
-// 🎯 استدعاء التبويبات المفصولة
 import 'summary_tab.dart';
 import 'daily_log_tab.dart';
 import 'honor_board_tab.dart';
-import 'parent_chat_tab.dart'; // 🎯 التاب الجديد للمراسلة
+import 'parent_chat_tab.dart'; 
 
 class ParentHomePage extends StatefulWidget {
   final DocumentSnapshot student;
@@ -25,7 +24,7 @@ class ParentHomePage extends StatefulWidget {
   State<ParentHomePage> createState() => _ParentHomePageState();
 }
 
-class _ParentHomePageState extends State<ParentHomePage> {
+class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProviderStateMixin {
   final Color primaryColor = const Color(0xff425c75);
   final Color goldColor = const Color(0xffD4AF37);
   final Color accentGold = const Color(0xffd4af37); 
@@ -41,12 +40,19 @@ class _ParentHomePageState extends State<ParentHomePage> {
 
   List<DocumentSnapshot> siblings = [];
 
+  late AnimationController _bgController;
+  late Animation<double> _bgAnimation;
+
   @override
   void initState() {
     super.initState();
     FirebaseMessaging.instance.requestPermission(
       alert: true, badge: true, sound: true, provisional: false,
     );
+    
+    _bgController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
+    _bgAnimation = Tween<double>(begin: -10, end: 20).animate(CurvedAnimation(parent: _bgController, curve: Curves.easeInOutSine));
+
     _loadHonorBoardAndImages();
     _saveDeviceToken(); 
     _fetchSiblings(); 
@@ -54,6 +60,12 @@ class _ParentHomePageState extends State<ParentHomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       UpdateChecker.checkForUpdates(context);
     });
+  }
+
+  @override
+  void dispose() {
+    _bgController.dispose();
+    super.dispose();
   }
 
   void _fetchSiblings() async {
@@ -141,6 +153,16 @@ class _ParentHomePageState extends State<ParentHomePage> {
               tooltip: 'تبديل الأبناء',
               onPressed: () => _showLiquidSiblingSwitcher(isDarkMode),
             ),
+          
+          // 🚀 زر تغيير الثيم (النهاري / الليلي)
+          IconButton(
+            icon: Icon(isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded, color: isDarkMode ? goldColor : primaryColor),
+            tooltip: isDarkMode ? 'تفعيل الوضع النهاري' : 'تفعيل الوضع الليلي',
+            onPressed: () {
+              Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
+            },
+          ),
+
           IconButton(icon: Icon(Icons.notifications_none_rounded, color: isDarkMode ? goldColor : primaryColor), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => NotificationsPage(studentId: studentId)))),
           IconButton(icon: Icon(Icons.logout_rounded, color: isDarkMode ? Colors.redAccent : Colors.red), onPressed: () => _showLogoutDialog(isDarkMode)),
         ],
@@ -157,8 +179,26 @@ class _ParentHomePageState extends State<ParentHomePage> {
               ),
             ),
           ),
-          Positioned(top: -20, left: -50, child: Container(width: 250, height: 250, decoration: BoxDecoration(shape: BoxShape.circle, color: isDarkMode ? goldColor.withOpacity(0.08) : goldColor.withOpacity(0.12)))),
-          Positioned(bottom: 100, right: -60, child: Container(width: 300, height: 300, decoration: BoxDecoration(shape: BoxShape.circle, color: isDarkMode ? primaryColor.withOpacity(0.15) : primaryColor.withOpacity(0.2)))),
+          
+          AnimatedBuilder(
+            animation: _bgAnimation,
+            builder: (context, child) {
+              return Stack(
+                children: [
+                  Positioned(
+                    top: -20 + _bgAnimation.value,
+                    left: -50 - (_bgAnimation.value / 2),
+                    child: Container(width: 250, height: 250, decoration: BoxDecoration(shape: BoxShape.circle, color: isDarkMode ? goldColor.withOpacity(0.08) : goldColor.withOpacity(0.12))),
+                  ),
+                  Positioned(
+                    bottom: 100 - _bgAnimation.value,
+                    right: -60 + _bgAnimation.value,
+                    child: Container(width: 300, height: 300, decoration: BoxDecoration(shape: BoxShape.circle, color: isDarkMode ? primaryColor.withOpacity(0.15) : primaryColor.withOpacity(0.2))),
+                  ),
+                ],
+              );
+            },
+          ),
 
           SafeArea(
             bottom: false,
@@ -207,7 +247,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
                     return DailyLogTab(sortedDocs: sortedDocs, isCompletedStudent: isCompletedStudent, isDarkMode: isDarkMode);
                   case 2: 
                     return HonorBoardTab(allWinners: allWinners, studentImagesCache: studentImagesCache, isHonorLoading: _isHonorLoading, currentStudentSerial: serialStr, isDarkMode: isDarkMode);
-                  case 3: // 🎯 التاب الجديد
+                  case 3: 
                     return ParentChatTab(studentId: studentId, studentName: studentName, supervisorId: supervisorId, supervisorName: supervisorName, isDarkMode: isDarkMode);
                   default:
                     return const SizedBox();
@@ -341,10 +381,10 @@ class _ParentHomePageState extends State<ParentHomePage> {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final itemWidth = constraints.maxWidth / 4; // 🎯 تقسيم العرض لـ 4 بدل 3
+                final itemWidth = constraints.maxWidth / 4; 
                 int closestIndex = _currentTabIndex;
                 if (_isDragging && _dragPosition != null) {
-                  closestIndex = ((_dragPosition! + (itemWidth / 2)) / itemWidth).round().clamp(0, 3); // 🎯 حد التمرير للـ 3
+                  closestIndex = ((_dragPosition! + (itemWidth / 2)) / itemWidth).round().clamp(0, 3); 
                 }
 
                 return GestureDetector(
@@ -399,7 +439,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
                           _buildNavItem(0, Icons.analytics_outlined, Icons.analytics_rounded, 'الخلاصة', itemWidth, isDarkMode, closestIndex),
                           _buildNavItem(1, Icons.history_edu_outlined, Icons.history_edu_rounded, 'السجل', itemWidth, isDarkMode, closestIndex),
                           _buildNavItem(2, Icons.stars_outlined, Icons.stars_rounded, 'التميز', itemWidth, isDarkMode, closestIndex),
-                          _buildNavItem(3, Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'تواصل', itemWidth, isDarkMode, closestIndex), // 🎯 الأيقونة الرابعة
+                          _buildNavItem(3, Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'تواصل', itemWidth, isDarkMode, closestIndex), 
                         ],
                       ),
                     ],
@@ -439,7 +479,7 @@ class _ParentHomePageState extends State<ParentHomePage> {
       case 0: return 'ملخص أداء: $studentName';
       case 1: return 'السجل اليومي للحفظ والمراجعة';
       case 2: return 'لوحة الشرف والتميز';
-      case 3: return 'التواصل مع المشرف'; // 🎯 العنوان عند اختيار التاب الرابع
+      case 3: return 'التواصل مع المشرف'; 
       default: return 'متابعة الطالب';
     }
   }
