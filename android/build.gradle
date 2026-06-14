@@ -1,9 +1,21 @@
+// 🚀 إجبار جذري: زرع نسخة كوتلن الحديثة في أساس المشروع
+buildscript {
+    ext.kotlin_version = '1.9.0'
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
 allprojects {
     repositories {
         google()
         mavenCentral()
     }
-    // إجبار تحميل مكتبات كوتلن الحديثة
+    // إجبار أي مكتبة تحاول تحميل كوتلن قديم على استخدام 1.9.0
     configurations.all {
         resolutionStrategy.eachDependency { details ->
             if (details.requested.group == 'org.jetbrains.kotlin') {
@@ -22,7 +34,7 @@ subprojects {
     project.evaluationDependsOn(':app')
 }
 
-// 🚀 الضربة القاضية: إجبار المترجم نفسه على استخدام لغة 1.9
+// 🚀 القاضية: تغيير لغة المترجم نفسه وتجاهل النسخة 1.4 تماماً
 subprojects {
     afterEvaluate { project ->
         if (project.hasProperty('android')) {
@@ -37,13 +49,14 @@ subprojects {
             }
         }
         
-        // استهداف مهام كوتلن حصراً وتغيير لغتها بالقوة
-        if (project.plugins.hasPlugin('kotlin-android') || project.plugins.hasPlugin('kotlin')) {
-            project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-                kotlinOptions {
-                    jvmTarget = "1.8"
-                    languageVersion = "1.9" // 🎯 هذا السطر يقتل الخطأ الخاص بك تماماً
-                }
+        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = "1.8"
+                freeCompilerArgs += [
+                    "-Xskip-prerelease-check",
+                    "-language-version", "1.9",
+                    "-api-version", "1.9"
+                ]
             }
         }
     }
