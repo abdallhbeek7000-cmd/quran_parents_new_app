@@ -3,6 +3,14 @@ allprojects {
         google()
         mavenCentral()
     }
+    // 🚀 القاضية: إجبار جميع المكتبات على استخدام كوتلن 1.9.0 
+    configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'org.jetbrains.kotlin') {
+                details.useVersion "1.9.0"
+            }
+        }
+    }
 }
 
 rootProject.buildDir = '../build'
@@ -14,23 +22,27 @@ subprojects {
     project.evaluationDependsOn(':app')
 }
 
-// 🚀 القاضية: إجبار جميع المكتبات (حتى المتمردة منها) على استخدام كوتلن الحديثة
 subprojects {
     afterEvaluate { project ->
-        // حل مشكلة الـ Namespace للمكتبات القديمة
         if (project.hasProperty('android')) {
             project.android {
                 if (namespace == null) {
                     namespace project.group
                 }
+                compileOptions {
+                    sourceCompatibility 1.8
+                    targetCompatibility 1.8
+                }
             }
         }
-        
-        // إجبار إصدار كوتلن والجافا
+        // إجبار المترجم على استخدام اللغة الحديثة وتجاهل 1.4
         project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
             kotlinOptions {
                 jvmTarget = "1.8"
-                languageVersion = "1.9" // إجبار التخلي عن 1.4
+                try {
+                    languageVersion = "1.9"
+                    apiVersion = "1.9"
+                } catch (e) {}
             }
         }
     }

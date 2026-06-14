@@ -42,9 +42,12 @@ jobs:
       - name: Clean Project
         run: flutter clean
 
-      # 6. تحميل حزم ومكتبات المشروع
+      # 6. تدمير الكاش القديم وإجبار السيرفر على جلب النسخ المتوافقة
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          rm -f pubspec.lock
+          flutter clean
+          flutter pub get
 
       # 🔐 7. خطوة فك تشفير وتجهيز ملفات التوقيع الملوكي عبر بايثون
       - name: Configure Production Production Keystore
