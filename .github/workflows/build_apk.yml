@@ -24,11 +24,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # 3. تثبيت لغة فلاتر تلقائياً وتحديد نسخة مستقرة تمنع تضارب كوتلن للاندرويد
+      # 3. تثبيت لغة فلاتر تلقائياً على أحدث نسخة مستقرة (لحل مشكلة توافق Dart الجديدة)
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.2'
           channel: 'stable'
 
       # 🚀 4. إنشاء ملف الفايربيز السري من أسرار غيت هاب (حل مشكلة المسار)
