@@ -44,7 +44,7 @@ class SummaryTab extends StatelessWidget {
           // 💳 1. الهوية الرقمية الزجاجية (مع النبض المباشر)
           _buildDigitalGlassID(studentData),
           
-          // 📖 2. مستوى تقدم الختمة
+          // 📖 2. مستوى تقدم الختمة (عادي أو مراجعة للخاتمين)
           _buildQuranProgressSection(),
           
           Padding(
@@ -130,10 +130,9 @@ class SummaryTab extends StatelessWidget {
     );
   }
 
-  // 💳 دالة بناء الهوية الرقمية الزجاجية للطالب
   Widget _buildDigitalGlassID(Map<String, dynamic> data) {
     String studentName = data['name'] ?? 'اسم الطالب';
-    var exactSerial = data['serial']; // 🎯 أخذ القيمة تماماً كما هي في فايربيز بدون تحويل
+    var exactSerial = data['serial']; 
     String serialNumStr = exactSerial?.toString() ?? '---';
     String grade = data['schoolGrade'] ?? 'غير محدد';
     String supervisor = data['supervisorName'] ?? 'غير محدد'; 
@@ -204,7 +203,6 @@ class SummaryTab extends StatelessWidget {
                     const SizedBox(width: 16),
                     Expanded(
                       child: StreamBuilder<QuerySnapshot>(
-                        // 🎯 تم إصلاح استعلام الفايربيز هنا
                         stream: FirebaseFirestore.instance.collection('students').where('serial', isEqualTo: exactSerial).limit(1).snapshots(),
                         builder: (context, snapshot) {
                           String pulse = 'none';
@@ -214,7 +212,7 @@ class SummaryTab extends StatelessWidget {
 
                           Color dotColor = Colors.transparent;
                           String pulseLabel = "";
-                          if (pulse == 'green') { dotColor = Colors.greenAccent.shade400; pulseLabel = "يُسمِّع"; }
+                          if (pulse == 'green') { dotColor = Colors.greenAccent.shade400; pulseLabel = "يُسمِّع"; }
                           else if (pulse == 'yellow') { dotColor = Colors.amber; pulseLabel = "يراجع"; }
                           else if (pulse == 'blue') { dotColor = Colors.lightBlueAccent; pulseLabel = "أتم التسميع"; }
 
@@ -434,16 +432,45 @@ class SummaryTab extends StatelessWidget {
     );
   }
 
+  // 🚀 قسم التقدم (يدعم الطالب العادي والخاتم بذكاء)
   Widget _buildQuranProgressSection() {
+    bool isCompleted = studentData['studentType'] == 'completed';
     double savedPages = 0.0;
+
     if (sessionSnapshot.hasData && sessionSnapshot.data!.docs.isNotEmpty) {
       var sessionDocs = sessionSnapshot.data!.docs;
+      // استبعاد الإجازات والغياب
       List<QueryDocumentSnapshot> sortedSessions = List.from(sessionDocs)..retainWhere((doc) => ((doc.data() as Map)['absent'] == false && (doc.data() as Map)['isExam'] == false));
       sortedSessions.sort((a, b) => ((b.data() as Map)['date']?.toString() ?? '').compareTo((a.data() as Map)['date']?.toString() ?? ''));
-      for (var doc in sortedSessions) {
-        if ((doc.data() as Map).containsKey('total_memorized_pages') && (doc.data() as Map)['total_memorized_pages'] != null) {
-          savedPages = ((doc.data() as Map)['total_memorized_pages'] as num).toDouble();
-          break;
+
+      if (isCompleted) {
+        // 🚀 خوارزمية استخراج أعلى رقم صفحة للطالب الخاتم
+        for (var doc in sortedSessions) {
+          var data = doc.data() as Map;
+          String fRev = data['farReview']?.toString() ?? data['review']?.toString() ?? '';
+          if (fRev.isNotEmpty) {
+            RegExp exp = RegExp(r'\d+');
+            Iterable<Match> matches = exp.allMatches(fRev);
+            int currentMax = 0;
+            for (var m in matches) {
+              int? val = int.tryParse(m.group(0)!);
+              if (val != null && val > currentMax && val <= 604) {
+                currentMax = val;
+              }
+            }
+            if (currentMax > 0) {
+              savedPages = currentMax.toDouble();
+              break; 
+            }
+          }
+        }
+      } else {
+        // 🚀 خوارزمية الطالب العادي
+        for (var doc in sortedSessions) {
+          if ((doc.data() as Map).containsKey('total_memorized_pages') && (doc.data() as Map)['total_memorized_pages'] != null) {
+            savedPages = ((doc.data() as Map)['total_memorized_pages'] as num).toDouble();
+            break;
+          }
         }
       }
     }
@@ -452,40 +479,49 @@ class SummaryTab extends StatelessWidget {
     double remainingPages = (totalQuranPages - savedPages).clamp(0.0, totalQuranPages);
     double progressPercentage = (savedPages / totalQuranPages).clamp(0.0, 1.0);
 
+    // 🚀 نصوص ديناميكية تتغير حسب نوع الطالب
+    String title = isCompleted ? "مستوى تقدم الختمة الحالية 🔄" : "مستوى تقدم الطالب في الختمة 👑";
+    String subtitle = isCompleted ? "وصل الطالب إلى الصفحة ${savedPages.toInt()} من أصل 604" : "تم تمكين ${savedPages.toInt()} من أصل 604 صفحة";
+    String footerText = remainingPages == 0 
+        ? (isCompleted ? "مبارك! أتم الطالب مراجعة الختمة بنجاح 🎉👑" : "مبارك! للطالب ختم كتاب الله كاملاً، هنيئاً لك 🎉👑")
+        : (isCompleted ? "متبقي للطالب [ ${remainingPages.toInt()} صفحة ] لإنهاء دورة المراجعة الحالية ✨" : "متبقي للطالب [ ${remainingPages.toInt()} صفحة ] ويختم كتاب الله كاملاً ✨");
+    
+    Color progressColor = isCompleted ? Colors.deepPurpleAccent : Colors.teal;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: _buildGlassContainer(
         padding: const EdgeInsets.all(18),
-        customBorderColor: Colors.teal.withOpacity(0.3),
+        customBorderColor: progressColor.withOpacity(0.3),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.auto_stories_rounded, color: isDarkMode ? Colors.tealAccent : Colors.teal, size: 18),
+                Icon(isCompleted ? Icons.autorenew_rounded : Icons.auto_stories_rounded, color: isDarkMode ? progressColor : progressColor, size: 18),
                 const SizedBox(width: 8),
-                Text("مستوى تقدم الطالب في الختمة 👑", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo')),
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo')),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("تم تمكين $savedPages من أصل 604 صفحة", style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white70 : Colors.grey.shade700, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: Colors.teal.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text("${(progressPercentage * 100).toStringAsFixed(1)}%", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDarkMode ? Colors.tealAccent : Colors.teal.shade900, fontFamily: 'Cairo'))),
+                Text(subtitle, style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white70 : Colors.grey.shade700, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: progressColor.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text("${(progressPercentage * 100).toStringAsFixed(1)}%", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDarkMode ? progressColor : progressColor.withOpacity(0.8), fontFamily: 'Cairo'))),
               ],
             ),
             const SizedBox(height: 8),
-            ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: progressPercentage, minHeight: 8, backgroundColor: isDarkMode ? Colors.white12 : Colors.grey.shade200, valueColor: AlwaysStoppedAnimation<Color>(isDarkMode ? Colors.tealAccent : Colors.teal.shade500))),
+            ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: progressPercentage, minHeight: 8, backgroundColor: isDarkMode ? Colors.white12 : Colors.grey.shade200, valueColor: AlwaysStoppedAnimation<Color>(isDarkMode ? progressColor : progressColor.withOpacity(0.8)))),
             const SizedBox(height: 12),
             Container(
               width: double.infinity, padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: isDarkMode ? Colors.tealAccent.withOpacity(0.05) : Colors.teal.withOpacity(0.03), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.teal.withOpacity(isDarkMode ? 0.2 : 0.1))),
+              decoration: BoxDecoration(color: isDarkMode ? progressColor.withOpacity(0.05) : progressColor.withOpacity(0.03), borderRadius: BorderRadius.circular(12), border: Border.all(color: progressColor.withOpacity(isDarkMode ? 0.2 : 0.1))),
               child: Row(
                 children: [
                   Icon(Icons.favorite_rounded, color: Colors.red.shade400, size: 14),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(remainingPages == 0 ? "مبارك! للطالب ختم كتاب الله كاملاً، هنيئاً لك 🎉👑" : "متبقي للطالب [ ${remainingPages.toStringAsFixed(0)} صفحة ] ويختم كتاب الله كاملاً ✨", style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, height: 1.4, fontFamily: 'Cairo'))),
+                  Expanded(child: Text(footerText, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, height: 1.4, fontFamily: 'Cairo'))),
                 ],
               ),
             ),
@@ -515,7 +551,6 @@ class SummaryTab extends StatelessWidget {
   }
 }
 
-// 🔴 أنيميشن النبض الحي 
 class LivePulseDot extends StatefulWidget {
   final Color color;
   final String label;

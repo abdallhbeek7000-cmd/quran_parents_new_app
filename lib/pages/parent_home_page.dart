@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart'; 
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/theme_provider.dart'; 
+import '../services/notification_service.dart'; // 🚀 استدعاء خدمة الإشعارات الموجودة عندك
 import 'login_page.dart';
 import 'update_checker.dart'; 
 import 'notifications_page.dart'; 
@@ -127,7 +128,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     }
   }
 
-  // 🚀 نافذة طلب إذن الغياب المدمجة
+  // 🚀 نافذة طلب إذن الغياب المدمجة مع إشعار للمشرف
   void _showLeaveRequestDialog(BuildContext context, bool isDarkMode, String studentId, String studentName, String supervisorId) {
     final TextEditingController reasonController = TextEditingController();
     DateTime selectedDate = DateTime.now();
@@ -197,7 +198,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                         ),
                         const SizedBox(height: 20),
 
-                        // زر الإرسال
+                        // زر الإرسال مع تفعيل الإشعارات للمشرف
                         SizedBox(
                           width: double.infinity, height: 45,
                           child: ElevatedButton(
@@ -210,7 +211,10 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                               
                               Navigator.pop(context); // إغلاق النافذة
                               
-                              // حفظ الطلب في الداتا بيز
+                              String notifyTitle = "📩 طلب استئذان جديد";
+                              String notifyBody = "أرسل ولي أمر الطالب $studentName طلب استئذان للغياب بتاريخ ${selectedDate.year}-${selectedDate.month}-${selectedDate.day}";
+
+                              // حفظ الطلب في الداتا بيز وإرسال إشعار
                               await FirebaseFirestore.instance.collection('leave_requests').add({
                                 'studentId': studentId,
                                 'studentName': studentName,
@@ -219,6 +223,17 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                                 'date': "${selectedDate.year}-${selectedDate.month}-${selectedDate.day}",
                                 'status': 'pending', 
                                 'timestamp': FieldValue.serverTimestamp(),
+                              }).then((_) {
+                                // 🚀 إرسال الإشعار الفوري للمشرف باستخدام الـ NotificationService الخاص بتطبيق الأهل
+                                NotificationService.sendAndSaveNotification(
+                                  studentId: supervisorId, // نمرر هنا الـ ID الخاص بالمشرف لكي يصله الإشعار
+                                  title: notifyTitle,
+                                  body: notifyBody,
+                                  type: "leave_request_pending",
+                                  context: context,
+                                ).catchError((error) {
+                                  print("فشل إرسال إشعار طلب الاستئذان: $error");
+                                });
                               });
 
                               if (mounted) {
@@ -270,7 +285,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
               onPressed: () => _showLiquidSiblingSwitcher(isDarkMode),
             ),
             
-          // 🚀 زر طلب الاستئذان المضاف للأهل
           IconButton(
             icon: Icon(Icons.event_busy_rounded, color: Colors.orangeAccent),
             tooltip: 'طلب إذن غياب',

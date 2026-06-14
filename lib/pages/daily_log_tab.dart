@@ -17,7 +17,7 @@ class DailyLogTab extends StatelessWidget {
   final Color primaryColor = const Color(0xff425c75);
   final Color accentGold = const Color(0xffd4af37);
 
-  // 🚀 دالة المساعدة لتحويل النصوص لتواريخ حقيقية (تم إضافتها هنا)
+  // 🚀 دالة المساعدة لتحويل النصوص لتواريخ حقيقية
   DateTime _parseDate(String dateStr) {
     try {
       List<String> parts = dateStr.split('-');
@@ -71,15 +71,18 @@ class DailyLogTab extends StatelessWidget {
       itemCount: finalSortedList.length,
       itemBuilder: (context, index) {
         var session = finalSortedList[index].data() as Map<String, dynamic>;
-        return _buildSessionItem(session);
+        int sessionNumber = finalSortedList.length - index; // 🚀 حساب رقم الجلسة
+        return _buildSessionItem(session, sessionNumber);
       },
     );
   }
 
-  Widget _buildSessionItem(Map<String, dynamic> session) {
+  // 🚀 توحيد وديناميكية الواجهة لكل الحالات (غياب، اختبار، بدون تسميع، جلسة عادية)
+  Widget _buildSessionItem(Map<String, dynamic> session, int sessionNumber) {
     final String sessionDate = session['date']?.toString() ?? 'بدون تاريخ';
     final bool isAbsent = session['absent'] ?? false;
     final bool isExam = session['isExam'] ?? false; 
+    final bool didNotRecite = session['didNotRecite'] ?? false; // 🚀 حالة حضر ولم يقرأ
     
     // 🚀 معالجة تعدد المشرفين للواجهة
     List<dynamic>? supNamesList = session['supervisorNames'];
@@ -91,274 +94,233 @@ class DailyLogTab extends StatelessWidget {
         ? "المشرفين" 
         : "المشرف المسجِّل";
 
-    if (isAbsent) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: _buildGlassContainer(
-          customBorderColor: Colors.redAccent.withOpacity(0.4),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.redAccent.withOpacity(isDarkMode ? 0.2 : 0.1),
-                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.event_busy, size: 16, color: Colors.redAccent),
-                        const SizedBox(width: 8),
-                        Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.redAccent.shade100 : Colors.red.shade900, fontFamily: 'Cairo', fontSize: 13)),
-                      ],
-                    ),
-                    _buildCustomBadge("غائب ❌", isDarkMode ? Colors.white : Colors.red.shade700, Colors.redAccent.withOpacity(isDarkMode ? 0.4 : 0.2)),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildMinimalistDetailRow(Icons.person_outline_rounded, supervisorLabel, supervisorName, isBold: true),
-                    const SizedBox(height: 10),
-                    _buildMinimalistDetailRow(Icons.warning_amber_rounded, "نوع الغياب", session['absenceType'] == "" ? "بدون عذر" : (session['absenceType'] ?? 'بدون عذر')),
-                    if (session['absenceReason'] != null && session['absenceReason'].toString().trim().isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      _buildMinimalistDetailRow(Icons.info_outline_rounded, "سبب الغياب", session['absenceReason']),
-                    ],
-                    if (session['notes'] != null && session['notes'].toString().trim().isNotEmpty) ...[
-                      Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : Colors.black12)),
-                      Text("📝 ملاحظة المشرف: ${session['notes']}", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.orangeAccent : Colors.orange.shade900, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-                    ]
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (isExam) {
-      int score = int.tryParse(session['examScore']?.toString() ?? '0') ?? 0;
-      Color examColor = score >= 80 ? Colors.green : (score >= 50 ? Colors.orange : Colors.red);
-
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: _buildGlassContainer(
-          customBorderColor: examColor.withOpacity(0.4),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: examColor.withOpacity(isDarkMode ? 0.2 : 0.1),
-                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.workspace_premium, size: 16, color: examColor),
-                        const SizedBox(width: 8),
-                        Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? examColor.withOpacity(0.8) : examColor, fontFamily: 'Cairo', fontSize: 13)),
-                      ],
-                    ),
-                    _buildCustomBadge("جلسة اختبار 📝", isDarkMode ? Colors.white : examColor, examColor.withOpacity(isDarkMode ? 0.4 : 0.2)),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildMinimalistDetailRow(Icons.person_outline_rounded, supervisorLabel, supervisorName, isBold: true),
-                    const SizedBox(height: 15),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: examColor.withOpacity(isDarkMode ? 0.1 : 0.05),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: examColor.withOpacity(0.2)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.workspace_premium_rounded, color: examColor, size: 26),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("النتيجة الرسمية لاختبار الطالب", style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white60 : Colors.grey, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-                              const SizedBox(height: 4),
-                              Text("$score / 100", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: examColor, fontFamily: 'Cairo')),
-                            ],
-                          )
-                        ],
-                      ),
-                    ),
-                    if (session['notes'] != null && session['notes'].toString().trim().isNotEmpty) ...[
-                      Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : Colors.black12)),
-                      Text("📝 ملاحظة المشرف: ${session['notes']}", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.orangeAccent : Colors.orange, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-                    ]
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // 🚀 جلب التقييمات الثلاثة المنفصلة بذكاء للحلقات العادية
-    String memRating = session['memorizationRating'] ?? session['rating'] ?? "";
-    String newRevRating = session['newReviewRating'] ?? session['reviewRating'] ?? session['rating'] ?? "";
-    String oldRevRating = session['oldReviewRating'] ?? session['reviewRating'] ?? session['rating'] ?? "";
-    String revRatingLegacy = session['reviewRating'] ?? session['rating'] ?? "";
-
     // 🚀 جلب بيانات الإنجاز
     String nMemo = session['newMemorization']?.toString().trim() ?? '';
     String nRev = session['nearReview']?.toString().trim() ?? '';
     String fRev = session['farReview']?.toString().trim() ?? (isCompletedStudent ? (session['review']?.toString().trim() ?? '') : '');
     String sight = session['readingBySight']?.toString().trim() ?? '';
 
-    // 🚀 جلب بيانات الواجب الثلاثية
+    // 🚀 جلب التقييمات
+    String memRating = session['memorizationRating'] ?? session['rating'] ?? "";
+    String newRevRating = session['newReviewRating'] ?? session['reviewRating'] ?? session['rating'] ?? "";
+    String oldRevRating = session['oldReviewRating'] ?? session['reviewRating'] ?? session['rating'] ?? "";
+    String revRatingLegacy = session['reviewRating'] ?? session['rating'] ?? "";
+
+    // 🚀 جلب الواجبات
     String nHw = session['newHomework']?.toString().trim() ?? '';
     String nRevHw = session['newReviewHomework']?.toString().trim() ?? '';
     String oRevHw = session['oldReviewHomework']?.toString().trim() ?? '';
     String oldHw = session['homework']?.toString().trim() ?? '';
 
-    // 🚀 بناء مربعات الإنجاز بشكل ديناميكي
+    // 🚀 بناء مربعات الإنجاز
     List<Widget> activeBoxes = [];
-    if (isCompletedStudent && fRev.isNotEmpty) {
-      activeBoxes.add(_buildGridInfoBox(Icons.verified_user_rounded, "المقدار المسموع من مراجعة الختمة الشاملة", fRev, isDarkMode ? Colors.tealAccent : Colors.teal));
-    } else {
-      if (nMemo.isNotEmpty) activeBoxes.add(_buildGridInfoBox(Icons.star_rounded, "الحفظ الجديد", nMemo, Colors.amber));
-      if (nRev.isNotEmpty) activeBoxes.add(_buildGridInfoBox(Icons.menu_book_rounded, "مراجعة جديد", nRev, isDarkMode ? Colors.tealAccent : Colors.teal));
-      if (fRev.isNotEmpty) activeBoxes.add(_buildGridInfoBox(Icons.history_toggle_off_rounded, "مراجعة قديم", fRev, Colors.blueGrey));
+    if (!isAbsent && !isExam && !didNotRecite) {
+      if (isCompletedStudent && fRev.isNotEmpty) {
+        activeBoxes.add(_buildGridInfoBox(Icons.verified_user_rounded, "مراجعة الختمة الشاملة", fRev, isDarkMode ? Colors.tealAccent : Colors.teal));
+      } else {
+        if (nMemo.isNotEmpty) activeBoxes.add(_buildGridInfoBox(Icons.star_rounded, "الحفظ الجديد", nMemo, Colors.amber));
+        if (nRev.isNotEmpty) activeBoxes.add(_buildGridInfoBox(Icons.menu_book_rounded, "مراجعة جديد", nRev, isDarkMode ? Colors.tealAccent : Colors.teal));
+        if (fRev.isNotEmpty) activeBoxes.add(_buildGridInfoBox(Icons.history_toggle_off_rounded, "مراجعة قديم", fRev, Colors.blueGrey));
+      }
+      if (sight.isNotEmpty) activeBoxes.add(_buildGridInfoBox(Icons.chrome_reader_mode_rounded, "قراءة نظراً", sight, Colors.indigoAccent));
     }
-    if (sight.isNotEmpty) activeBoxes.add(_buildGridInfoBox(Icons.chrome_reader_mode_rounded, "قراءة نظراً", sight, Colors.indigoAccent));
-
-    final String regularSupervisorLabel = (supNamesList != null && supNamesList.length > 1) 
-        ? "مشرفين الجلسة" 
-        : "مشرف الجلسة";
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: _buildGlassContainer(
+        customBorderColor: isAbsent ? Colors.redAccent.withOpacity(0.4) 
+                         : (isExam ? Colors.teal.withOpacity(0.4) 
+                         : (didNotRecite ? Colors.blueGrey.withOpacity(0.4) : null)),
         child: Column(
           children: [
-            // 🚀 الـ Header الذكي (التاريخ في سطر والتقييمات في سطر مستقل مع Wrap)
+            // 🚀 الـ Header الذكي ويتغير لونه وشعاره واسمه حسب الحالة
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: isDarkMode ? Colors.white.withOpacity(0.05) : primaryColor.withOpacity(0.05),
+                color: isAbsent ? Colors.redAccent.withOpacity(isDarkMode ? 0.2 : 0.1) 
+                     : (isExam ? Colors.teal.withOpacity(isDarkMode ? 0.2 : 0.1) 
+                     : (didNotRecite ? Colors.blueGrey.withOpacity(isDarkMode ? 0.2 : 0.1) 
+                     : (isDarkMode ? Colors.white.withOpacity(0.05) : primaryColor.withOpacity(0.05)))),
                 borderRadius: const BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(Icons.calendar_today, size: 16, color: isDarkMode ? accentGold : primaryColor),
-                      const SizedBox(width: 8),
-                      Text(sessionDate, style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo', fontSize: 13)),
+                      Row(
+                        children: [
+                          Icon(
+                            isAbsent ? Icons.event_busy : (isExam ? Icons.workspace_premium : (didNotRecite ? Icons.speaker_notes_off_outlined : Icons.calendar_today)), 
+                            size: 16, 
+                            color: isAbsent ? Colors.redAccent : (isExam ? Colors.teal : (didNotRecite ? Colors.blueGrey : (isDarkMode ? accentGold : primaryColor)))
+                          ),
+                          const SizedBox(width: 8),
+                          // 🚀 عرض رقم الجلسة للأهل
+                          Text(
+                            "الجلسة #$sessionNumber | $sessionDate", 
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold, 
+                              color: isAbsent ? (isDarkMode ? Colors.redAccent.shade100 : Colors.red.shade900) 
+                                   : (isExam ? (isDarkMode ? Colors.tealAccent : Colors.teal.shade900) 
+                                   : (didNotRecite ? Colors.blueGrey : (isDarkMode ? Colors.white : primaryColor))), 
+                              fontFamily: 'Cairo', 
+                              fontSize: 13
+                            )
+                          ),
+                        ],
+                      ),
+                      if (isAbsent) 
+                        _buildCustomBadge("غائب ❌", isDarkMode ? Colors.white : Colors.red.shade700, Colors.redAccent.withOpacity(isDarkMode ? 0.4 : 0.2))
+                      else if (isExam)
+                        _buildCustomBadge("جلسة اختبار 📝", isDarkMode ? Colors.white : Colors.teal, Colors.teal.withOpacity(isDarkMode ? 0.4 : 0.2))
+                      else if (didNotRecite) // 🚀 بادج حالة عدم التسميع
+                        _buildCustomBadge("بدون تسميع ℹ️", isDarkMode ? Colors.white : Colors.blueGrey, Colors.blueGrey.withOpacity(isDarkMode ? 0.4 : 0.2))
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      if (isCompletedStudent && revRatingLegacy.isNotEmpty)
-                        _buildCustomBadge("مراجعة الختمة: $revRatingLegacy", isDarkMode ? Colors.white : _getRatingColor(revRatingLegacy), _getRatingColor(revRatingLegacy).withOpacity(isDarkMode ? 0.4 : 0.2)),
-                      if (!isCompletedStudent) ...[
-                        if (nMemo.isNotEmpty && memRating.isNotEmpty)
-                          _buildCustomBadge("حفظ: $memRating", isDarkMode ? Colors.white : _getRatingColor(memRating), _getRatingColor(memRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
-                        if (nRev.isNotEmpty && newRevRating.isNotEmpty)
-                          _buildCustomBadge("م.جديد: $newRevRating", isDarkMode ? Colors.white : _getRatingColor(newRevRating), _getRatingColor(newRevRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
-                        if (fRev.isNotEmpty && oldRevRating.isNotEmpty)
-                          _buildCustomBadge("م.قديم: $oldRevRating", isDarkMode ? Colors.white : _getRatingColor(oldRevRating), _getRatingColor(oldRevRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
+                  
+                  // 🚀 التقييمات في سطر مستقل مع Wrap
+                  if (!isAbsent && !isExam && !didNotRecite) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        if (isCompletedStudent && revRatingLegacy.isNotEmpty)
+                          _buildCustomBadge("مراجعة الختمة: $revRatingLegacy", isDarkMode ? Colors.white : _getRatingColor(revRatingLegacy), _getRatingColor(revRatingLegacy).withOpacity(isDarkMode ? 0.4 : 0.2)),
+                        if (!isCompletedStudent) ...[
+                          if (nMemo.isNotEmpty && memRating.isNotEmpty)
+                            _buildCustomBadge("حفظ: $memRating", isDarkMode ? Colors.white : _getRatingColor(memRating), _getRatingColor(memRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
+                          if (nRev.isNotEmpty && newRevRating.isNotEmpty)
+                            _buildCustomBadge("م.جديد: $newRevRating", isDarkMode ? Colors.white : _getRatingColor(newRevRating), _getRatingColor(newRevRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
+                          if (fRev.isNotEmpty && oldRevRating.isNotEmpty)
+                            _buildCustomBadge("م.قديم: $oldRevRating", isDarkMode ? Colors.white : _getRatingColor(oldRevRating), _getRatingColor(oldRevRating).withOpacity(isDarkMode ? 0.4 : 0.2)),
+                        ],
                       ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ],
               ),
             ),
             
+            // 🚀 تفاصيل الجلسة
             Padding(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildMinimalistDetailRow(Icons.person_pin_rounded, regularSupervisorLabel, supervisorName, isBold: true),
-                  Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
+                  _buildMinimalistDetailRow(Icons.person_outline_rounded, supervisorLabel, supervisorName, isBold: true),
                   
-                  // 🚀 عرض المربعات الديناميكية للإنجاز 
-                  if (activeBoxes.isNotEmpty) ...[
-                    for (int i = 0; i < activeBoxes.length; i += 2)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
+                  if (isAbsent) ...[
+                    const SizedBox(height: 10),
+                    _buildMinimalistDetailRow(Icons.warning_amber_rounded, "نوع الغياب", session['absenceType'] == "" ? "بدون عذر" : (session['absenceType'] ?? 'بدون عذر')),
+                    if (session['absenceReason'] != null && session['absenceReason'].toString().trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _buildMinimalistDetailRow(Icons.info_outline_rounded, "سبب الغياب", session['absenceReason']),
+                    ],
+                  ],
+
+                  if (!isAbsent && !isExam && !didNotRecite) ...[
+                    Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
+                    
+                    if (activeBoxes.isNotEmpty) ...[
+                      for (int i = 0; i < activeBoxes.length; i += 2)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            children: [
+                              Expanded(child: activeBoxes[i]),
+                              const SizedBox(width: 10),
+                              if (i + 1 < activeBoxes.length)
+                                Expanded(child: activeBoxes[i + 1])
+                              else
+                                Expanded(child: const SizedBox()), 
+                            ],
+                          ),
+                        ),
+                      Divider(color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9), height: 20),
+                    ],
+
+                    if (nHw.isNotEmpty || nRevHw.isNotEmpty || oRevHw.isNotEmpty || oldHw.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: accentGold.withOpacity(isDarkMode ? 0.05 : 0.05),
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(color: accentGold.withOpacity(0.2)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(child: activeBoxes[i]),
-                            const SizedBox(width: 10),
-                            if (i + 1 < activeBoxes.length)
-                              Expanded(child: activeBoxes[i + 1])
-                            else
-                              Expanded(child: const SizedBox()), 
+                            Row(
+                              children: [
+                                Icon(Icons.menu_book, size: 16, color: accentGold),
+                                const SizedBox(width: 6),
+                                Text(isCompletedStudent ? "المقدار المطلوب للمرة القادمة:" : "الواجب القادم:", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white70 : Colors.black87, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            if (nHw.isNotEmpty) _buildHomeworkRow("حفظ جديد", nHw),
+                            if (nRevHw.isNotEmpty) _buildHomeworkRow("مراجعة جديد", nRevHw),
+                            if (oRevHw.isNotEmpty) _buildHomeworkRow(isCompletedStudent ? "مراجعة الختمة" : "مراجعة قديم", oRevHw),
+                            if (oldHw.isNotEmpty && nHw.isEmpty && nRevHw.isEmpty && oRevHw.isEmpty) _buildHomeworkRow("الواجب", oldHw),
                           ],
                         ),
                       ),
-                    Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
+                      Divider(color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9), height: 20),
+                    ],
                   ],
-                  
-                  // 🚀 صندوق الواجب المستقل والأنيق لتطبيق الأهل
-                  if (nHw.isNotEmpty || nRevHw.isNotEmpty || oRevHw.isNotEmpty || oldHw.isNotEmpty) ...[
+
+                  if (isExam && !isAbsent) ...[
+                    const SizedBox(height: 15),
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: accentGold.withOpacity(isDarkMode ? 0.05 : 0.05),
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: accentGold.withOpacity(0.2)),
+                        color: Colors.teal.withOpacity(isDarkMode ? 0.1 : 0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.teal.withOpacity(0.2)),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Row(
+                          const Icon(Icons.workspace_premium_rounded, color: Colors.teal, size: 26),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.menu_book, size: 16, color: accentGold),
-                              const SizedBox(width: 6),
-                              Text(isCompletedStudent ? "المقدار المطلوب للمرة القادمة:" : "الواجب القادم:", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white70 : Colors.black87, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                              Text("النتيجة الرسمية لاختبار الطالب", style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white60 : Colors.grey, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                              const SizedBox(height: 4),
+                              Text("${session['examScore'] ?? '0'} / 100", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.teal, fontFamily: 'Cairo')),
                             ],
-                          ),
-                          const SizedBox(height: 8),
-                          if (nHw.isNotEmpty) _buildHomeworkRow("حفظ جديد", nHw),
-                          if (nRevHw.isNotEmpty) _buildHomeworkRow("مراجعة جديد", nRevHw),
-                          if (oRevHw.isNotEmpty) _buildHomeworkRow(isCompletedStudent ? "مراجعة الختمة" : "مراجعة قديم", oRevHw),
-                          if (oldHw.isNotEmpty && nHw.isEmpty && nRevHw.isEmpty && oRevHw.isEmpty) _buildHomeworkRow("الواجب", oldHw),
+                          )
                         ],
                       ),
                     ),
-                    Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
+                    const SizedBox(height: 10),
                   ],
 
-                  const SizedBox(height: 8),
-                  _buildMinimalistDetailRow(Icons.emoji_emotions_outlined, "حالة سلوك الطالب بالحلقة", session['studentStatus'] ?? 'مهذب'),
-                  
-                  if (session['religiousActivities'] != null && session['religiousActivities'].toString().trim().isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    _buildMinimalistDetailRow(Icons.mosque_outlined, "الأنشطة والدروس الدينية", session['religiousActivities']),
+                  // 🚀 إظهار السلوك والنشاطات للطالب الذي حضر (حتى لو لم يسمّع)
+                  if (!isAbsent && !isExam) ...[
+                    if (didNotRecite) const SizedBox(height: 10),
+                    _buildMinimalistDetailRow(Icons.emoji_emotions_outlined, "حالة سلوك الطالب بالحلقة", session['studentStatus'] ?? 'مهذب'),
+                    if (session['religiousActivities'] != null && session['religiousActivities'].toString().trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _buildMinimalistDetailRow(Icons.mosque_outlined, "الأنشطة الدينية", session['religiousActivities']),
+                    ],
+                    if (!didNotRecite) ...[
+                      const SizedBox(height: 10),
+                      _buildMinimalistDetailRow(
+                        Icons.analytics_outlined, 
+                        "إجمالي الحفظ للختمة", 
+                        isCompletedStudent ? "604 صفحة (مكتملة ✨)" : (session['total_memorized_pages'] != null ? "${session['total_memorized_pages']} صفحة" : "---"), 
+                      ),
+                    ]
                   ],
-                  
+
                   if (session['notes'] != null && session['notes'].toString().trim().isNotEmpty) ...[
-                    Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : Colors.black12)),
+                    Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : Colors.black12)),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
@@ -368,14 +330,13 @@ class DailyLogTab extends StatelessWidget {
                   ]
                 ],
               ),
-            )
+            ),
           ],
         ),
       ),
     );
   }
 
-  // 🚀 أداة فرعية لعرض سطور الواجب بشكل مرتب
   Widget _buildHomeworkRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4, right: 22),
@@ -389,7 +350,6 @@ class DailyLogTab extends StatelessWidget {
     );
   }
 
-  // 🚀 إزالة القيود من الأسطر ليتمدد المربع بحرية عند وجود إضافات (+)
   Widget _buildGridInfoBox(IconData icon, String title, String val, Color iconColor) {
     return Container(
       padding: const EdgeInsets.all(12),

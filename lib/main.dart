@@ -199,30 +199,26 @@ class _MyAppState extends State<MyApp> {
       ),
 
       // 🌙 السمة الليلية (الزجاج الداكن الفخم)
-      darkTheme: ThemeData(
-        fontFamily: 'Cairo', 
-        brightness: Brightness.dark,
-        primaryColor: primaryColor,
-        scaffoldBackgroundColor: const Color(0xff121212),
-        colorScheme: const ColorScheme.dark(
-          primary: accentGold,
-          secondary: primaryColor,
-        ),
-        cardTheme: const CardTheme(color: Color(0xff1e293b)),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          centerTitle: true,
-          elevation: 0,
-        ),
-        dialogBackgroundColor: const Color(0xff1e293b).withOpacity(0.95),
-        bottomSheetTheme: BottomSheetThemeData(
-          backgroundColor: const Color(0xff1e293b).withOpacity(0.95),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-          ),
-        ),
-      ),
+      // في darkTheme داخل main.dart
+darkTheme: ThemeData(
+  fontFamily: 'Cairo', 
+  brightness: Brightness.dark,
+  primaryColor: primaryColor,
+  scaffoldBackgroundColor: const Color(0xff121212),
+  colorScheme: const ColorScheme.dark(
+    primary: accentGold,
+    secondary: primaryColor,
+  ),
+  // cardTheme: const CardTheme(color: Color(0xff1e293b)),  <-- احذفه أو علقه هلق مؤقتاً
+  
+  appBarTheme: const AppBarTheme(
+    backgroundColor: Colors.transparent,
+    foregroundColor: Colors.white,
+    centerTitle: true,
+    elevation: 0,
+  ),
+  // ...
+),
       
       home: const AuthWrapper(),
     );
