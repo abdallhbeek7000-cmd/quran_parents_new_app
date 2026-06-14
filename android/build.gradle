@@ -12,6 +12,17 @@ subprojects {
 
 subprojects {
     project.evaluationDependsOn(':app')
+    
+    // 🚀 السلاح النهائي: اعتراض أي مهمة كوتلن وإخضاعها لنسخة 1.9 لحظة إنشائها
+    project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = "1.8"
+            freeCompilerArgs += [
+                "-language-version", "1.9",
+                "-api-version", "1.9"
+            ]
+        }
+    }
 }
 
 tasks.register("clean", Delete) {
