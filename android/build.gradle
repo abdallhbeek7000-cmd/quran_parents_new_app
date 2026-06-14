@@ -12,15 +12,26 @@ subprojects {
 
 subprojects {
     project.evaluationDependsOn(':app')
-    
-    // 🚀 الحل السحري لإجبار جميع المكتبات القديمة على التوافق مع Kotlin الحديثة
-    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-        kotlinOptions {
-            jvmTarget = "1.8"
-            freeCompilerArgs += [
-                "-language-version", "1.8",
-                "-api-version", "1.8"
-            ]
+}
+
+// 🚀 القاضية: إجبار جميع المكتبات (حتى المتمردة منها) على استخدام كوتلن الحديثة
+subprojects {
+    afterEvaluate { project ->
+        // حل مشكلة الـ Namespace للمكتبات القديمة
+        if (project.hasProperty('android')) {
+            project.android {
+                if (namespace == null) {
+                    namespace project.group
+                }
+            }
+        }
+        
+        // إجبار إصدار كوتلن والجافا
+        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = "1.8"
+                languageVersion = "1.9" // إجبار التخلي عن 1.4
+            }
         }
     }
 }
