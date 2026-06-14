@@ -3,7 +3,7 @@ allprojects {
         google()
         mavenCentral()
     }
-    // 🚀 القاضية: إجبار جميع المكتبات على استخدام كوتلن 1.9.0 
+    // إجبار تحميل مكتبات كوتلن الحديثة
     configurations.all {
         resolutionStrategy.eachDependency { details ->
             if (details.requested.group == 'org.jetbrains.kotlin') {
@@ -22,6 +22,7 @@ subprojects {
     project.evaluationDependsOn(':app')
 }
 
+// 🚀 الضربة القاضية: إجبار المترجم نفسه على استخدام لغة 1.9
 subprojects {
     afterEvaluate { project ->
         if (project.hasProperty('android')) {
@@ -30,19 +31,19 @@ subprojects {
                     namespace project.group
                 }
                 compileOptions {
-                    sourceCompatibility 1.8
-                    targetCompatibility 1.8
+                    sourceCompatibility JavaVersion.VERSION_1_8
+                    targetCompatibility JavaVersion.VERSION_1_8
                 }
             }
         }
-        // إجبار المترجم على استخدام اللغة الحديثة وتجاهل 1.4
-        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-            kotlinOptions {
-                jvmTarget = "1.8"
-                try {
-                    languageVersion = "1.9"
-                    apiVersion = "1.9"
-                } catch (e) {}
+        
+        // استهداف مهام كوتلن حصراً وتغيير لغتها بالقوة
+        if (project.plugins.hasPlugin('kotlin-android') || project.plugins.hasPlugin('kotlin')) {
+            project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+                kotlinOptions {
+                    jvmTarget = "1.8"
+                    languageVersion = "1.9" // 🎯 هذا السطر يقتل الخطأ الخاص بك تماماً
+                }
             }
         }
     }
