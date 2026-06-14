@@ -9,8 +9,20 @@ rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
+
 subprojects {
     project.evaluationDependsOn(':app')
+    
+    // 🚀 الحل السحري لإجبار جميع المكتبات القديمة على التوافق مع Kotlin الحديثة
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = "1.8"
+            freeCompilerArgs += [
+                "-language-version", "1.8",
+                "-api-version", "1.8"
+            ]
+        }
+    }
 }
 
 tasks.register("clean", Delete) {
