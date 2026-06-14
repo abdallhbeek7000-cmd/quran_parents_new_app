@@ -6,7 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart'; 
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/theme_provider.dart'; 
-import '../services/notification_service.dart'; // 🚀 استدعاء خدمة الإشعارات الموجودة عندك
+import '../services/notification_service.dart'; 
 import 'login_page.dart';
 import 'update_checker.dart'; 
 import 'notifications_page.dart'; 
@@ -259,141 +259,153 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final data = widget.student.data() as Map<String, dynamic>;
     final String studentId = widget.student.id;
-    final String studentName = data['name'] ?? 'الطالب';
-    final String serialStr = data['serial']?.toString() ?? '';
-    final bool isCompletedStudent = data['studentType'] == 'completed';
     final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
-    final String supervisorId = data['supervisorId'] ?? '';
-    final String supervisorName = data['supervisorName'] ?? 'المشرف';
 
-    return Scaffold(
-      extendBodyBehindAppBar: true, 
-      extendBody: true, 
-      backgroundColor: isDarkMode ? const Color(0xff121212) : const Color(0xfff1f5f9),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent, 
-        title: Text(_getAppBarTitle(_currentTabIndex, studentName), style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontSize: 16, fontFamily: 'Cairo')),
-        centerTitle: true,
-        actions: [
-          if (siblings.isNotEmpty)
-            IconButton(
-              icon: Icon(Icons.people_alt_rounded, color: isDarkMode ? goldColor : primaryColor),
-              tooltip: 'تبديل الأبناء',
-              onPressed: () => _showLiquidSiblingSwitcher(isDarkMode),
-            ),
-            
-          IconButton(
-            icon: Icon(Icons.event_busy_rounded, color: Colors.orangeAccent),
-            tooltip: 'طلب إذن غياب',
-            onPressed: () => _showLeaveRequestDialog(context, isDarkMode, studentId, studentName, supervisorId),
-          ),
-          
-          IconButton(
-            icon: Icon(isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded, color: isDarkMode ? goldColor : primaryColor),
-            tooltip: isDarkMode ? 'تفعيل الوضع النهاري' : 'تفعيل الوضع الليلي',
-            onPressed: () {
-              Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
-            },
-          ),
+    // 🚀 الحل الجذري: استماع مباشر لتحديثات بيانات الطالب (الختمة) حتى تتحدث فوراً
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('students').doc(studentId).snapshots(),
+      builder: (context, studentSnapshot) {
+        
+        // جلب البيانات المباشرة إذا توفرت، وإلا نستخدم القديمة لكي لا تظهر شاشة بيضاء
+        final Map<String, dynamic> data = studentSnapshot.hasData && studentSnapshot.data!.data() != null
+            ? studentSnapshot.data!.data() as Map<String, dynamic>
+            : widget.student.data() as Map<String, dynamic>;
 
-          IconButton(icon: Icon(Icons.notifications_none_rounded, color: isDarkMode ? goldColor : primaryColor), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => NotificationsPage(studentId: studentId)))),
-          IconButton(icon: Icon(Icons.logout_rounded, color: isDarkMode ? Colors.redAccent : Colors.red), onPressed: () => _showLogoutDialog(isDarkMode)),
-        ],
-      ),
-      
-      body: Stack(
-        children: [
-          Container(
-            width: double.infinity, height: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isDarkMode ? [const Color(0xff0f172a), const Color(0xff1e293b), const Color(0xff0f172a)] : [const Color(0xffe2e8f0), const Color(0xffcfdef3), const Color(0xffe0eafc)],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
+        final String studentName = data['name'] ?? 'الطالب';
+        final String serialStr = data['serial']?.toString() ?? '';
+        final bool isCompletedStudent = data['studentType'] == 'completed';
+        final String supervisorId = data['supervisorId'] ?? '';
+        final String supervisorName = data['supervisorName'] ?? 'المشرف';
+
+        return Scaffold(
+          extendBodyBehindAppBar: true, 
+          extendBody: true, 
+          backgroundColor: isDarkMode ? const Color(0xff121212) : const Color(0xfff1f5f9),
+          appBar: AppBar(
+            elevation: 0,
+            backgroundColor: Colors.transparent, 
+            title: Text(_getAppBarTitle(_currentTabIndex, studentName), style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontSize: 16, fontFamily: 'Cairo')),
+            centerTitle: true,
+            actions: [
+              if (siblings.isNotEmpty)
+                IconButton(
+                  icon: Icon(Icons.people_alt_rounded, color: isDarkMode ? goldColor : primaryColor),
+                  tooltip: 'تبديل الأبناء',
+                  onPressed: () => _showLiquidSiblingSwitcher(isDarkMode),
+                ),
+                
+              IconButton(
+                icon: Icon(Icons.event_busy_rounded, color: Colors.orangeAccent),
+                tooltip: 'طلب إذن غياب',
+                onPressed: () => _showLeaveRequestDialog(context, isDarkMode, studentId, studentName, supervisorId),
               ),
-            ),
+              
+              IconButton(
+                icon: Icon(isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded, color: isDarkMode ? goldColor : primaryColor),
+                tooltip: isDarkMode ? 'تفعيل الوضع النهاري' : 'تفعيل الوضع الليلي',
+                onPressed: () {
+                  Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
+                },
+              ),
+
+              IconButton(icon: Icon(Icons.notifications_none_rounded, color: isDarkMode ? goldColor : primaryColor), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => NotificationsPage(studentId: studentId)))),
+              IconButton(icon: Icon(Icons.logout_rounded, color: isDarkMode ? Colors.redAccent : Colors.red), onPressed: () => _showLogoutDialog(isDarkMode)),
+            ],
           ),
           
-          AnimatedBuilder(
-            animation: _bgAnimation,
-            builder: (context, child) {
-              return Stack(
-                children: [
-                  Positioned(
-                    top: -20 + _bgAnimation.value,
-                    left: -50 - (_bgAnimation.value / 2),
-                    child: Container(width: 250, height: 250, decoration: BoxDecoration(shape: BoxShape.circle, color: isDarkMode ? goldColor.withOpacity(0.08) : goldColor.withOpacity(0.12))),
+          body: Stack(
+            children: [
+              Container(
+                width: double.infinity, height: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDarkMode ? [const Color(0xff0f172a), const Color(0xff1e293b), const Color(0xff0f172a)] : [const Color(0xffe2e8f0), const Color(0xffcfdef3), const Color(0xffe0eafc)],
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
                   ),
-                  Positioned(
-                    bottom: 100 - _bgAnimation.value,
-                    right: -60 + _bgAnimation.value,
-                    child: Container(width: 300, height: 300, decoration: BoxDecoration(shape: BoxShape.circle, color: isDarkMode ? primaryColor.withOpacity(0.15) : primaryColor.withOpacity(0.2))),
-                  ),
-                ],
-              );
-            },
-          ),
+                ),
+              ),
+              
+              AnimatedBuilder(
+                animation: _bgAnimation,
+                builder: (context, child) {
+                  return Stack(
+                    children: [
+                      Positioned(
+                        top: -20 + _bgAnimation.value,
+                        left: -50 - (_bgAnimation.value / 2),
+                        child: Container(width: 250, height: 250, decoration: BoxDecoration(shape: BoxShape.circle, color: isDarkMode ? goldColor.withOpacity(0.08) : goldColor.withOpacity(0.12))),
+                      ),
+                      Positioned(
+                        bottom: 100 - _bgAnimation.value,
+                        right: -60 + _bgAnimation.value,
+                        child: Container(width: 300, height: 300, decoration: BoxDecoration(shape: BoxShape.circle, color: isDarkMode ? primaryColor.withOpacity(0.15) : primaryColor.withOpacity(0.2))),
+                      ),
+                    ],
+                  );
+                },
+              ),
 
-          SafeArea(
-            bottom: false,
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('sessions').where('studentId', isEqualTo: studentId).snapshots(),
-              builder: (context, sessionSnapshot) {
-                int totalSessions = 0;
-                int absentCount = 0;
-                int excellentCount = 0;
-                int goodCount = 0;
-                int badCount = 0;
-                List<QueryDocumentSnapshot> sortedDocs = [];
+              SafeArea(
+                bottom: false,
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance.collection('sessions').where('studentId', isEqualTo: studentId).snapshots(),
+                  builder: (context, sessionSnapshot) {
+                    int totalSessions = 0;
+                    int absentCount = 0;
+                    int excellentCount = 0;
+                    int goodCount = 0;
+                    int badCount = 0;
+                    List<QueryDocumentSnapshot> sortedDocs = [];
 
-                if (sessionSnapshot.hasData) {
-                  var docs = sessionSnapshot.data!.docs;
-                  totalSessions = docs.length;
-                  for (var doc in docs) {
-                    var sData = doc.data() as Map<String, dynamic>;
-                    if (sData['absent'] == true) {
-                      absentCount++;
-                    } else {
-                      String memRating = sData['memorizationRating']?.toString() ?? sData['rating']?.toString() ?? '';
-                      String revRating = sData['reviewRating']?.toString() ?? sData['rating']?.toString() ?? '';
-                      if (memRating == 'ممتاز' || memRating == 'جيد جداً' || revRating == 'ممتاز' || revRating == 'جيد جداً') {
-                        excellentCount++;
-                      } else if (memRating == 'سيء' || memRating == 'ضعيف' || revRating == 'سيء' || revRating == 'ضعيف') {
-                        badCount++;
-                      } else {
-                        goodCount++;
+                    if (sessionSnapshot.hasData) {
+                      var docs = sessionSnapshot.data!.docs;
+                      totalSessions = docs.length;
+                      for (var doc in docs) {
+                        var sData = doc.data() as Map<String, dynamic>;
+                        if (sData['absent'] == true) {
+                          absentCount++;
+                        } else {
+                          String memRating = sData['memorizationRating']?.toString() ?? sData['rating']?.toString() ?? '';
+                          String revRating = sData['reviewRating']?.toString() ?? sData['rating']?.toString() ?? '';
+                          if (memRating == 'ممتاز' || memRating == 'جيد جداً' || revRating == 'ممتاز' || revRating == 'جيد جداً') {
+                            excellentCount++;
+                          } else if (memRating == 'سيء' || memRating == 'ضعيف' || revRating == 'سيء' || revRating == 'ضعيف') {
+                            badCount++;
+                          } else {
+                            goodCount++;
+                          }
+                        }
                       }
+                      sortedDocs = List.from(docs)..sort((a, b) => ((b.data() as Map)['date']?.toString() ?? '').compareTo((a.data() as Map)['date']?.toString() ?? ''));
                     }
-                  }
-                  sortedDocs = List.from(docs)..sort((a, b) => ((b.data() as Map)['date']?.toString() ?? '').compareTo((a.data() as Map)['date']?.toString() ?? ''));
-                }
 
-                int presentCount = totalSessions - absentCount;
+                    int presentCount = totalSessions - absentCount;
 
-                switch (_currentTabIndex) {
-                  case 0: 
-                    return RefreshIndicator(
-                      onRefresh: () async => setState(() {}),
-                      child: SummaryTab(studentData: data, sessionSnapshot: sessionSnapshot, total: totalSessions, present: presentCount, absent: absentCount, excellent: excellentCount, good: goodCount, bad: badCount, isDarkMode: isDarkMode),
-                    );
-                  case 1: 
-                    if (sessionSnapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                    return DailyLogTab(sortedDocs: sortedDocs, isCompletedStudent: isCompletedStudent, isDarkMode: isDarkMode);
-                  case 2: 
-                    return HonorBoardTab(allWinners: allWinners, studentImagesCache: studentImagesCache, isHonorLoading: _isHonorLoading, currentStudentSerial: serialStr, isDarkMode: isDarkMode);
-                  case 3: 
-                    return ParentChatTab(studentId: studentId, studentName: studentName, supervisorId: supervisorId, supervisorName: supervisorName, isDarkMode: isDarkMode);
-                  default:
-                    return const SizedBox();
-                }
-              },
-            ),
+                    switch (_currentTabIndex) {
+                      case 0: 
+                        return RefreshIndicator(
+                          onRefresh: () async => setState(() {}),
+                          child: SummaryTab(studentData: data, sessionSnapshot: sessionSnapshot, total: totalSessions, present: presentCount, absent: absentCount, excellent: excellentCount, good: goodCount, bad: badCount, isDarkMode: isDarkMode),
+                        );
+                      case 1: 
+                        if (sessionSnapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                        return DailyLogTab(sortedDocs: sortedDocs, isCompletedStudent: isCompletedStudent, isDarkMode: isDarkMode);
+                      case 2: 
+                        return HonorBoardTab(allWinners: allWinners, studentImagesCache: studentImagesCache, isHonorLoading: _isHonorLoading, currentStudentSerial: serialStr, isDarkMode: isDarkMode);
+                      case 3: 
+                        return ParentChatTab(studentId: studentId, studentName: studentName, supervisorId: supervisorId, supervisorName: supervisorName, isDarkMode: isDarkMode);
+                      default:
+                        return const SizedBox();
+                    }
+                  },
+                ),
+              ),
+              _buildDraggableLiquidNavBar(isDarkMode),
+            ],
           ),
-          _buildDraggableLiquidNavBar(isDarkMode),
-        ],
-      ),
+        );
+      }
     );
   }
 

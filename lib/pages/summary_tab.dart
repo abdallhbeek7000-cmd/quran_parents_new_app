@@ -30,6 +30,18 @@ class SummaryTab extends StatelessWidget {
   final Color primaryColor = const Color(0xff425c75);
   final Color goldColor = const Color(0xffD4AF37);
 
+  DateTime _parseDate(String dateStr) {
+    try {
+      List<String> parts = dateStr.split('-');
+      if (parts.length == 3) {
+        return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+      }
+    } catch (e) {
+      return DateTime(2000); 
+    }
+    return DateTime(2000);
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -38,23 +50,14 @@ class SummaryTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ✨ 0. إشراقة اليوم
           _buildDailyInspiration(),
-
-          // 💳 1. الهوية الرقمية الزجاجية (مع النبض المباشر)
           _buildDigitalGlassID(studentData),
-          
-          // 📖 2. مستوى تقدم الختمة (عادي أو مراجعة للخاتمين)
           _buildQuranProgressSection(),
-          
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Text("📊 لوحة الأداء والإحصائيات الحية", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Cairo', color: isDarkMode ? Colors.white : primaryColor)),
           ),
-          
-          // 📊 3. الإحصائيات الحية
           _buildParentStatsDashboard(),
-          
           const SizedBox(height: 30),
         ],
       ),
@@ -432,19 +435,40 @@ class SummaryTab extends StatelessWidget {
     );
   }
 
-  // 🚀 قسم التقدم (يدعم الطالب العادي والخاتم بذكاء)
+  // 🚀 قسم التقدم المطور: استبعاد "بدون تسميع" وفلترة الأرقام بدقة
   Widget _buildQuranProgressSection() {
     bool isCompleted = studentData['studentType'] == 'completed';
     double savedPages = 0.0;
 
     if (sessionSnapshot.hasData && sessionSnapshot.data!.docs.isNotEmpty) {
       var sessionDocs = sessionSnapshot.data!.docs;
-      // استبعاد الإجازات والغياب
-      List<QueryDocumentSnapshot> sortedSessions = List.from(sessionDocs)..retainWhere((doc) => ((doc.data() as Map)['absent'] == false && (doc.data() as Map)['isExam'] == false));
-      sortedSessions.sort((a, b) => ((b.data() as Map)['date']?.toString() ?? '').compareTo((a.data() as Map)['date']?.toString() ?? ''));
+      
+      // 🚀 استبعاد الإجازات، الغياب، وحالات (حضر ولم يقرأ)
+      List<QueryDocumentSnapshot> sortedSessions = List.from(sessionDocs)..retainWhere((doc) {
+        var data = doc.data() as Map;
+        return data['absent'] == false && data['isExam'] == false && data['didNotRecite'] != true;
+      });
+      
+      sortedSessions.sort((a, b) {
+        var dataA = a.data() as Map<String, dynamic>;
+        var dataB = b.data() as Map<String, dynamic>;
+
+        DateTime dateAObj = _parseDate(dataA['date'] ?? '');
+        DateTime dateBObj = _parseDate(dataB['date'] ?? '');
+
+        int dateComparison = dateBObj.compareTo(dateAObj);
+
+        if (dateComparison == 0) {
+          Timestamp? tA = dataA['timestamp'] as Timestamp?;
+          Timestamp? tB = dataB['timestamp'] as Timestamp?;
+          if (tA != null && tB != null) return tB.compareTo(tA);
+          if (tA == null && tB != null) return -1;
+          if (tB == null && tA != null) return 1;
+        }
+        return dateComparison;
+      });
 
       if (isCompleted) {
-        // 🚀 خوارزمية استخراج أعلى رقم صفحة للطالب الخاتم
         for (var doc in sortedSessions) {
           var data = doc.data() as Map;
           String fRev = data['farReview']?.toString() ?? data['review']?.toString() ?? '';
@@ -458,6 +482,7 @@ class SummaryTab extends StatelessWidget {
                 currentMax = val;
               }
             }
+            // 🚀 يجب أن يكون الرقم أكبر من صفر لاعتماده
             if (currentMax > 0) {
               savedPages = currentMax.toDouble();
               break; 
@@ -465,11 +490,15 @@ class SummaryTab extends StatelessWidget {
           }
         }
       } else {
-        // 🚀 خوارزمية الطالب العادي
         for (var doc in sortedSessions) {
-          if ((doc.data() as Map).containsKey('total_memorized_pages') && (doc.data() as Map)['total_memorized_pages'] != null) {
-            savedPages = ((doc.data() as Map)['total_memorized_pages'] as num).toDouble();
-            break;
+          var data = doc.data() as Map;
+          if (data.containsKey('total_memorized_pages') && data['total_memorized_pages'] != null) {
+            double val = double.tryParse(data['total_memorized_pages'].toString()) ?? 0.0;
+            // 🚀 يجب أن يكون الرقم أكبر من صفر لاعتماده (لضمان عدم تصفير العداد)
+            if (val > 0) {
+              savedPages = val;
+              break;
+            }
           }
         }
       }
@@ -479,7 +508,6 @@ class SummaryTab extends StatelessWidget {
     double remainingPages = (totalQuranPages - savedPages).clamp(0.0, totalQuranPages);
     double progressPercentage = (savedPages / totalQuranPages).clamp(0.0, 1.0);
 
-    // 🚀 نصوص ديناميكية تتغير حسب نوع الطالب
     String title = isCompleted ? "مستوى تقدم الختمة الحالية 🔄" : "مستوى تقدم الطالب في الختمة 👑";
     String subtitle = isCompleted ? "وصل الطالب إلى الصفحة ${savedPages.toInt()} من أصل 604" : "تم تمكين ${savedPages.toInt()} من أصل 604 صفحة";
     String footerText = remainingPages == 0 
