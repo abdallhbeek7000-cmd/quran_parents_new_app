@@ -1,6 +1,5 @@
-// 🚀 السر هنا: توفير المتغير الذي تبحث عنه المكتبات القديمة لمنعها من العودة لـ 1.4
 buildscript {
-    ext.kotlin_version = '1.8.22'
+    ext.kotlin_version = '1.9.24'
     repositories {
         google()
         mavenCentral()
@@ -8,12 +7,28 @@ buildscript {
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
+    // 🚀 السلاح النووي الحقيقي: فلتر أمني يعترض أي مكتبة تحاول تحميل مترجم قديم ويستبدله بالقوة
+    configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'org.jetbrains.kotlin' && details.requested.name == 'kotlin-gradle-plugin') {
+                details.useVersion "1.9.24"
+            }
+        }
+    }
 }
 
 allprojects {
     repositories {
         google()
         mavenCentral()
+    }
+    // إجبار كل مكتبات كوتلن العادية على نفس النسخة
+    configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'org.jetbrains.kotlin') {
+                details.useVersion "1.9.24"
+            }
+        }
     }
 }
 
@@ -25,7 +40,7 @@ subprojects {
 subprojects {
     project.evaluationDependsOn(':app')
     
-    // إجبار إضافي لضمان توافق الجافا
+    // توحيد الجافا لمنع أي تعارض
     project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
         kotlinOptions {
             jvmTarget = "1.8"
