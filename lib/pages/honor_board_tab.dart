@@ -25,113 +25,139 @@ class HonorBoardTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 120), // مساحة للشريط العائم
+      padding: const EdgeInsets.only(bottom: 120, top: 15), 
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(height: 15),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Text("🏆 لوحة أوسمة الشرف للمعهد", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Cairo', color: isDarkMode ? Colors.white : primaryColor)),
+          // 🚀 1. ترويسة الصفحة (تم رفعها للأعلى لتملأ الفراغ)
+          Icon(Icons.workspace_premium_rounded, size: 70, color: goldColor.withOpacity(isDarkMode ? 0.8 : 0.6)),
+          const SizedBox(height: 10),
+          Text(
+            "منظومة تحفيز الطلاب الذكية",
+            style: TextStyle(fontFamily: 'Cairo', fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor),
           ),
-          _buildHonorBoardSection(),
-          const SizedBox(height: 25),
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.workspace_premium_rounded, size: 80, color: goldColor.withOpacity(0.3)),
-                const SizedBox(height: 10),
-                Text(
-                  "منظومة تحفيز الطلاب الذكية",
-                  style: TextStyle(fontFamily: 'Cairo', fontSize: 14, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : primaryColor),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 6),
-                  child: Text(
-                    "يتم تحديث قائمة النجوم بشكل دوري من إدارة الحلقة لتكريم الطلاب الأكثر انضباطاً وتميزاً.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontFamily: 'Cairo', fontSize: 11, color: isDarkMode ? Colors.white54 : Colors.grey.shade500, height: 1.4),
-                  ),
-                ),
-              ],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 8),
+            child: Text(
+              "يتم تحديث قائمة النجوم بشكل دوري من قبل إدارة المعهد لتكريم الطلاب الأكثر انضباطاً وتميزاً في الحفظ والمراجعة.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: isDarkMode ? Colors.white60 : Colors.grey.shade600, height: 1.5, fontWeight: FontWeight.w600),
             ),
           ),
+          
+          const SizedBox(height: 15),
+          Divider(color: isDarkMode ? Colors.white12 : Colors.black12, indent: 40, endIndent: 40),
+          const SizedBox(height: 15),
+
+          // 🚀 2. شبكة النجوم التفاعلية (The Adaptive Grid)
+          _buildHonorBoardGrid(),
         ],
       ),
     );
   }
 
-  Widget _buildHonorBoardSection() {
+  Widget _buildHonorBoardGrid() {
     if (isHonorLoading) {
-      return const SizedBox(height: 140, child: Center(child: CircularProgressIndicator()));
+      return const Padding(
+        padding: EdgeInsets.only(top: 50),
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
     if (allWinners.isEmpty) {
-      return SizedBox(height: 140, child: Center(child: Text("سيتم إعلان النجوم قريباً", style: TextStyle(fontSize: 13, color: isDarkMode ? Colors.white54 : Colors.grey, fontFamily: 'Cairo'))));
+      return Padding(
+        padding: const EdgeInsets.only(top: 50),
+        child: Column(
+          children: [
+            Icon(Icons.hourglass_empty_rounded, size: 50, color: isDarkMode ? Colors.white24 : Colors.black12),
+            const SizedBox(height: 10),
+            Text("سيتم إعلان نجوم الأسبوع قريباً...", style: TextStyle(fontSize: 14, color: isDarkMode ? Colors.white54 : Colors.grey, fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
     }
 
-    return SizedBox(
-      height: 140,
-      child: ListView.builder(
-        physics: const BouncingScrollPhysics(),
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 15),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      child: GridView.builder(
+        shrinkWrap: true, // مهم جداً عشان ياخد مساحته جوا الـ SingleChildScrollView
+        physics: const NeverScrollableScrollPhysics(),
+        // 🚀 توزيع ذكي: يعرض 3 طلاب بالصف على الشاشات العادية، و2 لو الشاشة صغيرة جداً
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 140, 
+          childAspectRatio: 0.78, // نسبة الطول للعرض للكارت
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 15,
+        ),
         itemCount: allWinners.length,
         itemBuilder: (context, index) {
           var winner = allWinners[index];
           String winnerSerialStr = winner['serial']?.toString() ?? '';
           String winnerName = winner['name'] ?? '';
+          
+          // 🎯 التحقق إذا كان هذا الطالب هو ابن ولي الأمر الحالي
           bool isCurrent = (winnerSerialStr == currentStudentSerial && currentStudentSerial.isNotEmpty);
           String finalImageUrl = studentImagesCache[winnerSerialStr] ?? '';
 
-          return Container(
-            width: 110,
-            margin: const EdgeInsets.symmetric(horizontal: 5),
-            child: _buildGlassContainer(
-              padding: const EdgeInsets.all(8),
-              customColor: isCurrent ? goldColor.withOpacity(0.15) : (isDarkMode ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.4)),
-              customBorderColor: isCurrent ? goldColor.withOpacity(0.8) : null,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: goldColor.withOpacity(0.6), width: 2),
-                      color: primaryColor.withOpacity(0.1),
+          return _buildGlassContainer(
+            padding: const EdgeInsets.all(8),
+            // إشعاع ذهبي خاص لكارت ابن ولي الأمر
+            customColor: isCurrent ? goldColor.withOpacity(0.15) : (isDarkMode ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.5)),
+            customBorderColor: isCurrent ? goldColor.withOpacity(0.8) : (isDarkMode ? Colors.white12 : Colors.white),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    Container(
+                      width: 60, height: 60,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: isCurrent ? goldColor : (isDarkMode ? Colors.white24 : primaryColor.withOpacity(0.3)), width: 2),
+                        boxShadow: isCurrent ? [BoxShadow(color: goldColor.withOpacity(0.4), blurRadius: 10)] : [],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(30),
+                        child: finalImageUrl.isNotEmpty && finalImageUrl.startsWith('http')
+                            ? CachedNetworkImage(
+                                imageUrl: finalImageUrl,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => const Center(child: SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2))),
+                                errorWidget: (context, url, error) => _buildFallbackAvatar(winnerName),
+                              )
+                            : _buildFallbackAvatar(winnerName),
+                      ),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(27),
-                      child: finalImageUrl.isNotEmpty && finalImageUrl.startsWith('http')
-                          ? CachedNetworkImage(
-                              imageUrl: finalImageUrl,
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) => const Center(child: SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2))),
-                              errorWidget: (context, url, error) => Center(
-                                child: Text(winnerName.isNotEmpty ? winnerName.substring(0, 1) : '?', style: TextStyle(fontSize: 18, color: isDarkMode ? goldColor : primaryColor, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-                              ),
-                            )
-                          : Center(
-                              child: Text(winnerName.isNotEmpty ? winnerName.substring(0, 1) : '?', style: TextStyle(fontSize: 18, color: isDarkMode ? goldColor : primaryColor, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-                            ),
-                    ),
+                    if (isCurrent)
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: goldColor, width: 1.5)),
+                        child: Icon(Icons.star_rounded, size: 12, color: goldColor),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  winnerName, 
+                  textAlign: TextAlign.center, 
+                  maxLines: 2, 
+                  overflow: TextOverflow.ellipsis, 
+                  style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white : primaryColor, fontWeight: isCurrent ? FontWeight.w900 : FontWeight.bold, fontFamily: 'Cairo', height: 1.2),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isCurrent ? goldColor.withOpacity(0.2) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    winnerName, 
-                    textAlign: TextAlign.center, 
-                    maxLines: 1, 
-                    overflow: TextOverflow.ellipsis, 
-                    style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white : primaryColor, fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600, fontFamily: 'Cairo'),
+                  child: Text(
+                    isCurrent ? "👑 بطلنا" : "🏆 متميز", 
+                    style: TextStyle(fontSize: 10, color: isCurrent ? goldColor : (isDarkMode ? Colors.orangeAccent : Colors.orange.shade700), fontWeight: FontWeight.bold, fontFamily: 'Cairo')
                   ),
-                  Text(
-                    isCurrent ? "👑 ابنكم متميز" : "🏆 متميز", 
-                    style: TextStyle(fontSize: 10, color: isCurrent ? goldColor : Colors.orangeAccent, fontWeight: FontWeight.bold, fontFamily: 'Cairo')
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 5),
+              ],
             ),
           );
         },
@@ -139,18 +165,30 @@ class HonorBoardTab extends StatelessWidget {
     );
   }
 
+  Widget _buildFallbackAvatar(String name) {
+    return Container(
+      color: primaryColor.withOpacity(0.1),
+      child: Center(
+        child: Text(
+          name.isNotEmpty ? name.substring(0, 1) : '?', 
+          style: TextStyle(fontSize: 22, color: isDarkMode ? goldColor : primaryColor, fontWeight: FontWeight.bold, fontFamily: 'Cairo')
+        ),
+      ),
+    );
+  }
+
   Widget _buildGlassContainer({required Widget child, EdgeInsetsGeometry padding = EdgeInsets.zero, Color? customColor, Color? customBorderColor}) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(25),
+      borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
             color: customColor ?? (isDarkMode ? Colors.white.withOpacity(0.06) : Colors.white.withOpacity(0.4)),
-            borderRadius: BorderRadius.circular(25),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: customBorderColor ?? (isDarkMode ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.6)), width: 1.5),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02), blurRadius: 15, offset: const Offset(0, 8))],
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02), blurRadius: 10, offset: const Offset(0, 5))],
           ),
           child: child,
         ),
