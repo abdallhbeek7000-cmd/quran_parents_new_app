@@ -103,27 +103,57 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     }
   }
 
+  // 🚀 الدالة السحرية المعدلة لجلب كل النجوم مهما كان عددهم (النظام الجديد)
   void _loadHonorBoardAndImages() async {
     try {
       final honorSnapshot = await FirebaseFirestore.instance.collection('honor_board').get();
       List<Map<String, dynamic>> winners = [];
+      
       for (var doc in honorSnapshot.docs) {
-        var d = doc.data();
-        if (d['first'] != null && d['first']['name'] != "لم يحدد") winners.add(d['first']);
-        if (d['second'] != null && d['second']['name'] != "لم يحدد") winners.add(d['second']);
-        if (d['third'] != null && d['third']['name'] != "لم يحدد") winners.add(d['third']);
+        var data = doc.data();
+        
+        // قراءة قائمة النجوم الديناميكية
+        List<dynamic> knights = data.containsKey('knights') ? data['knights'] : [];
+        
+        if (knights.isNotEmpty) {
+          for (var k in knights) {
+            if (k != null && k['name'] != "لم يحدد") {
+              winners.add(Map<String, dynamic>.from(k));
+            }
+          }
+        } else {
+          // خط رجعة لدعم البيانات القديمة لو في فئة لسا ما اتحدثت
+          if (data.containsKey('first') && data['first'] != null && data['first']['name'] != "لم يحدد") winners.add(Map<String, dynamic>.from(data['first']));
+          if (data.containsKey('second') && data['second'] != null && data['second']['name'] != "لم يحدد") winners.add(Map<String, dynamic>.from(data['second']));
+          if (data.containsKey('third') && data['third'] != null && data['third']['name'] != "لم يحدد") winners.add(Map<String, dynamic>.from(data['third']));
+        }
       }
+      
       Map<String, String> tempCache = {};
       for (var winner in winners) {
         var rawSerial = winner['serial'];
         String winnerSerialStr = rawSerial?.toString() ?? '';
-        final studentQuery = await FirebaseFirestore.instance.collection('students').where('serial', isEqualTo: int.tryParse(winnerSerialStr) ?? winnerSerialStr).limit(1).get();
-        if (studentQuery.docs.isNotEmpty) {
-          tempCache[winnerSerialStr] = studentQuery.docs.first.data()['imageUrl']?.toString() ?? '';
+        
+        if (winnerSerialStr.isNotEmpty) {
+          int serialNumber = int.tryParse(winnerSerialStr) ?? 0;
+          // حل ذكي للبحث عن السيريال سواء كان محفوظ كنص أو كرقم
+          final studentQuery = await FirebaseFirestore.instance.collection('students').where('serial', whereIn: [serialNumber, winnerSerialStr]).limit(1).get();
+          
+          if (studentQuery.docs.isNotEmpty) {
+            tempCache[winnerSerialStr] = studentQuery.docs.first.data()['imageUrl']?.toString() ?? '';
+          }
         }
       }
-      if (mounted) setState(() { allWinners = winners; studentImagesCache = tempCache; _isHonorLoading = false; });
+      
+      if (mounted) {
+        setState(() { 
+          allWinners = winners; 
+          studentImagesCache = tempCache; 
+          _isHonorLoading = false; 
+        });
+      }
     } catch (e) {
+      print("Error loading honor board: $e");
       if (mounted) setState(() { _isHonorLoading = false; });
     }
   }
