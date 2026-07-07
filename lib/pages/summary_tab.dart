@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'student_rewards_page.dart'; // 🚀 استيراد صفحة الجوائز الجديدة
 
 class SummaryTab extends StatelessWidget {
   final Map<String, dynamic> studentData;
@@ -52,6 +53,10 @@ class SummaryTab extends StatelessWidget {
         children: [
           _buildDailyInspiration(),
           _buildDigitalGlassID(studentData),
+          
+          // 🚀 محفظة النقاط التفاعلية للطلاب تحت الهوية الرقمية مباشرة مع الربط الفعلي
+          _buildStudentPointsWallet(context),
+          
           _buildQuranProgressSection(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -287,6 +292,91 @@ class SummaryTab extends StatelessWidget {
     );
   }
 
+  // 🚀 محفظة النقاط مع العداد الحركي والربط الحقيقي بصفحة المتجر التفاعلي
+  Widget _buildStudentPointsWallet(BuildContext context) {
+    var exactSerial = studentData['serial'];
+    
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('students').where('serial', isEqualTo: exactSerial).limit(1).snapshots(),
+      builder: (context, snapshot) {
+        int currentPoints = 0;
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          currentPoints = (snapshot.data!.docs.first.data() as Map<String, dynamic>)['points'] ?? 0;
+        }
+
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(24),
+              onTap: () {
+                if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                  // 🚀 الانتقال المباشر بدون تعليقات لصفحة المتجر وتمرير بيانات الطالب
+                  Navigator.push(
+                    context, 
+                    MaterialPageRoute(builder: (context) => StudentRewardsPage(studentDoc: snapshot.data!.docs.first))
+                  );
+                }
+              },
+              child: _buildGlassContainer(
+                padding: const EdgeInsets.all(16),
+                customColor: isDarkMode ? goldColor.withOpacity(0.06) : Colors.white.withOpacity(0.5),
+                customBorderColor: goldColor.withOpacity(0.3),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: [goldColor, goldColor.withOpacity(0.6)]),
+                            shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(color: goldColor.withOpacity(0.4), blurRadius: 10, spreadRadius: 1)]
+                          ),
+                          child: const Icon(Icons.stars_rounded, color: Colors.white, size: 24),
+                        ),
+                        const SizedBox(width: 14),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("رصيدك الحالي من النقاط", style: TextStyle(fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.grey.shade700)),
+                            const SizedBox(height: 2),
+                            Text("اضغط هنا لاستبدال جوائزك وتصفح السجل 🎁", style: TextStyle(fontFamily: 'Cairo', fontSize: 10, color: isDarkMode ? goldColor.withOpacity(0.8) : primaryColor.withOpacity(0.8), fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ],
+                    ),
+                    
+                    // 🔢 العداد الحركي الدوار للنقاط لايف
+                    TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0, end: currentPoints.toDouble()),
+                      duration: const Duration(milliseconds: 1500),
+                      curve: Curves.easeOutBack,
+                      builder: (context, value, child) {
+                        return Text(
+                          value.toStringAsFixed(0),
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            fontFamily: 'Cairo',
+                            color: isDarkMode ? goldColor : primaryColor,
+                            shadows: [Shadow(color: goldColor.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))]
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildAvatarPlaceholder(String name) {
     return Container(
       color: isDarkMode ? primaryColor : primaryColor.withOpacity(0.1),
@@ -435,7 +525,6 @@ class SummaryTab extends StatelessWidget {
     );
   }
 
-  // 🚀 قسم التقدم المطور: استبعاد "بدون تسميع" وفلترة الأرقام بدقة
   Widget _buildQuranProgressSection() {
     bool isCompleted = studentData['studentType'] == 'completed';
     double savedPages = 0.0;
@@ -443,7 +532,6 @@ class SummaryTab extends StatelessWidget {
     if (sessionSnapshot.hasData && sessionSnapshot.data!.docs.isNotEmpty) {
       var sessionDocs = sessionSnapshot.data!.docs;
       
-      // 🚀 استبعاد الإجازات، الغياب، وحالات (حضر ولم يقرأ)
       List<QueryDocumentSnapshot> sortedSessions = List.from(sessionDocs)..retainWhere((doc) {
         var data = doc.data() as Map;
         return data['absent'] == false && data['isExam'] == false && data['didNotRecite'] != true;
@@ -482,7 +570,6 @@ class SummaryTab extends StatelessWidget {
                 currentMax = val;
               }
             }
-            // 🚀 يجب أن يكون الرقم أكبر من صفر لاعتماده
             if (currentMax > 0) {
               savedPages = currentMax.toDouble();
               break; 
@@ -494,7 +581,6 @@ class SummaryTab extends StatelessWidget {
           var data = doc.data() as Map;
           if (data.containsKey('total_memorized_pages') && data['total_memorized_pages'] != null) {
             double val = double.tryParse(data['total_memorized_pages'].toString()) ?? 0.0;
-            // 🚀 يجب أن يكون الرقم أكبر من صفر لاعتماده (لضمان عدم تصفير العداد)
             if (val > 0) {
               savedPages = val;
               break;
