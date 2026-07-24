@@ -103,7 +103,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     }
   }
 
-  // 🚀 الدالة السحرية المعدلة لجلب كل النجوم مهما كان عددهم (النظام الجديد)
   void _loadHonorBoardAndImages() async {
     try {
       final honorSnapshot = await FirebaseFirestore.instance.collection('honor_board').get();
@@ -112,7 +111,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
       for (var doc in honorSnapshot.docs) {
         var data = doc.data();
         
-        // قراءة قائمة النجوم الديناميكية
         List<dynamic> knights = data.containsKey('knights') ? data['knights'] : [];
         
         if (knights.isNotEmpty) {
@@ -122,7 +120,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
             }
           }
         } else {
-          // خط رجعة لدعم البيانات القديمة لو في فئة لسا ما اتحدثت
           if (data.containsKey('first') && data['first'] != null && data['first']['name'] != "لم يحدد") winners.add(Map<String, dynamic>.from(data['first']));
           if (data.containsKey('second') && data['second'] != null && data['second']['name'] != "لم يحدد") winners.add(Map<String, dynamic>.from(data['second']));
           if (data.containsKey('third') && data['third'] != null && data['third']['name'] != "لم يحدد") winners.add(Map<String, dynamic>.from(data['third']));
@@ -136,7 +133,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
         
         if (winnerSerialStr.isNotEmpty) {
           int serialNumber = int.tryParse(winnerSerialStr) ?? 0;
-          // حل ذكي للبحث عن السيريال سواء كان محفوظ كنص أو كرقم
           final studentQuery = await FirebaseFirestore.instance.collection('students').where('serial', whereIn: [serialNumber, winnerSerialStr]).limit(1).get();
           
           if (studentQuery.docs.isNotEmpty) {
@@ -158,10 +154,22 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     }
   }
 
-  // 🚀 نافذة طلب إذن الغياب المدمجة مع إشعار للمشرف
+  // 🚀 نافذة طلب إذن الغياب المعدلة (بدون كتابة + أسباب جاهزة + توقيت الإرسال + إشعار للمدير والمشرف)
   void _showLeaveRequestDialog(BuildContext context, bool isDarkMode, String studentId, String studentName, String supervisorId) {
-    final TextEditingController reasonController = TextEditingController();
     DateTime selectedDate = DateTime.now();
+    
+    // الأسباب المعتمدة الجاهزة للاختيار
+    final List<String> predefinedReasons = [
+      "مرض",
+      "سفر",
+      "دراسة",
+      "حالة وفاة",
+      "عمل",
+      "زيارة",
+      "لم يحضر الطالب"
+    ];
+
+    String selectedReason = predefinedReasons.first;
 
     showDialog(
       context: context,
@@ -184,17 +192,17 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.event_busy_rounded, size: 50, color: Colors.orangeAccent),
-                        const SizedBox(height: 10),
+                        const Icon(Icons.event_busy_rounded, size: 48, color: Colors.orangeAccent),
+                        const SizedBox(height: 8),
                         Text("طلب إذن غياب", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo')),
                         const SizedBox(height: 15),
                         
-                        // اختيار التاريخ
+                        // 📅 اختيار تاريخ الغياب
                         ListTile(
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                           tileColor: isDarkMode ? Colors.black26 : Colors.grey.shade100,
                           leading: Icon(Icons.calendar_month_rounded, color: accentGold),
-                          title: Text("تاريخ الغياب: ${selectedDate.year}-${selectedDate.month}-${selectedDate.day}", style: TextStyle(fontFamily: 'Cairo', fontSize: 13, color: isDarkMode ? Colors.white : Colors.black87)),
+                          title: Text("تاريخ الغياب: ${selectedDate.year}-${selectedDate.month}-${selectedDate.day}", style: TextStyle(fontFamily: 'Cairo', fontSize: 13, color: isDarkMode ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
                           onTap: () async {
                             final DateTime? picked = await showDatePicker(
                               context: context, initialDate: selectedDate, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 30)),
@@ -213,66 +221,106 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                         ),
                         const SizedBox(height: 15),
 
-                        // حقل السبب
-                        TextField(
-                          controller: reasonController,
-                          maxLines: 3,
-                          style: TextStyle(fontFamily: 'Cairo', color: isDarkMode ? Colors.white : Colors.black87, fontWeight: FontWeight.bold),
-                          decoration: InputDecoration(
-                            hintText: "اكتب سبب الغياب هنا...",
-                            hintStyle: TextStyle(color: isDarkMode ? Colors.white54 : Colors.black54, fontFamily: 'Cairo', fontSize: 13),
-                            filled: true,
-                            fillColor: isDarkMode ? Colors.black26 : Colors.grey.shade100,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                          ),
+                        // 🏷️ اختيارات أسباب الغياب المحددة جاهزة بدون مربع كتابة
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text("حدد سبب الغياب:", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black87, fontFamily: 'Cairo')),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: predefinedReasons.map((reason) {
+                            final bool isSelected = selectedReason == reason;
+                            return ChoiceChip(
+                              label: Text(reason, style: TextStyle(fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.bold, color: isSelected ? Colors.white : (isDarkMode ? Colors.white70 : Colors.black87))),
+                              selected: isSelected,
+                              selectedColor: accentGold,
+                              backgroundColor: isDarkMode ? Colors.black38 : Colors.grey.shade200,
+                              onSelected: (val) {
+                                if (val) setDialogState(() => selectedReason = reason);
+                              },
+                            );
+                          }).toList(),
+                        ),
+                        
+                        const SizedBox(height: 22),
 
-                        // زر الإرسال مع تفعيل الإشعارات للمشرف
+                        // 🚀 زر الإرسال المتطور
                         SizedBox(
-                          width: double.infinity, height: 45,
+                          width: double.infinity, height: 48,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: accentGold,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                             ),
                             onPressed: () async {
-                              if (reasonController.text.trim().isEmpty) return;
-                              
                               Navigator.pop(context); // إغلاق النافذة
-                              
-                              String notifyTitle = "📩 طلب استئذان جديد";
-                              String notifyBody = "أرسل ولي أمر الطالب $studentName طلب استئذان للغياب بتاريخ ${selectedDate.year}-${selectedDate.month}-${selectedDate.day}";
 
-                              // حفظ الطلب في الداتا بيز وإرسال إشعار
+                              // 🕒 حساب واستخراج الوقت الحالي للطلب بدقة (مثال: 04:30 PM)
+                              final DateTime now = DateTime.now();
+                              final String formattedHour = now.hour > 12 ? (now.hour - 12).toString().padLeft(2, '0') : (now.hour == 0 ? "12" : now.hour.toString().padLeft(2, '0'));
+                              final String formattedMinute = now.minute.toString().padLeft(2, '0');
+                              final String period = now.hour >= 12 ? "PM" : "AM";
+                              final String sendTimeStr = "$formattedHour:$formattedMinute $period";
+
+                              String notifyTitle = "📩 طلب استئذان جديد";
+                              String notifyBody = "أرسل ولي أمر الطالب $studentName طلب استئذان للغياب يوم (${selectedDate.year}-${selectedDate.month}-${selectedDate.day})، السبب: ($selectedReason) - وقت الإرسال: $sendTimeStr";
+
+                              // 1️⃣ حفظ الطلب في قاعدة البيانات
                               await FirebaseFirestore.instance.collection('leave_requests').add({
                                 'studentId': studentId,
                                 'studentName': studentName,
                                 'supervisorId': supervisorId,
-                                'reason': reasonController.text.trim(),
+                                'reason': selectedReason,
                                 'date': "${selectedDate.year}-${selectedDate.month}-${selectedDate.day}",
+                                'requestTime': sendTimeStr, // الوقت الدقيق للإرسال
                                 'status': 'pending', 
                                 'timestamp': FieldValue.serverTimestamp(),
-                              }).then((_) {
-                                // 🚀 إرسال الإشعار الفوري للمشرف باستخدام الـ NotificationService الخاص بتطبيق الأهل
+                              });
+
+                              // 2️⃣ إرسال إشعار فوري للمشرف
+                              if (supervisorId.isNotEmpty) {
                                 NotificationService.sendAndSaveNotification(
-                                  studentId: supervisorId, // نمرر هنا الـ ID الخاص بالمشرف لكي يصله الإشعار
+                                  studentId: supervisorId,
                                   title: notifyTitle,
                                   body: notifyBody,
                                   type: "leave_request_pending",
                                   context: context,
-                                ).catchError((error) {
-                                  print("فشل إرسال إشعار طلب الاستئذان: $error");
-                                });
-                              });
+                                ).catchError((e) => print("فشل إرسال إشعار المشرف: $e"));
+                              }
+
+                              // 3️⃣ 🔥 جلب معرفات المدراء وإرسال إشعار فوري للمدير كذلك!
+                              try {
+                                final managerDocs = await FirebaseFirestore.instance
+                                    .collection('users')
+                                    .where('role', isEqualTo: 'manager')
+                                    .get();
+
+                                for (var manager in managerDocs.docs) {
+                                  NotificationService.sendAndSaveNotification(
+                                    studentId: manager.id, // إرسال الإشعار للمدير
+                                    title: "👑 $notifyTitle",
+                                    body: notifyBody,
+                                    type: "leave_request_pending",
+                                    context: context,
+                                  ).catchError((e) => print("فشل إرسال إشعار المدير: $e"));
+                                }
+                              } catch (e) {
+                                print("خطأ في جلب المدراء للإشعار: $e");
+                              }
 
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(backgroundColor: Colors.green, content: Text("✅ تم إرسال طلب الغياب للمشرف بانتظار الموافقة", style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold))),
+                                  const SnackBar(
+                                    backgroundColor: Colors.green,
+                                    content: Text("✅ تم إرسال طلب الغياب للمشرف والمدير بنجاح", style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+                                  ),
                                 );
                               }
                             },
-                            child: const Text("إرسال الطلب", style: TextStyle(color: Colors.white, fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+                            child: const Text("إرسال الطلب", style: TextStyle(color: Colors.white, fontFamily: 'Cairo', fontWeight: FontWeight.bold, fontSize: 15)),
                           ),
                         )
                       ],
@@ -292,12 +340,10 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     final String studentId = widget.student.id;
     final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
 
-    // 🚀 الحل الجذري: استماع مباشر لتحديثات بيانات الطالب (الختمة) حتى تتحدث فوراً
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('students').doc(studentId).snapshots(),
       builder: (context, studentSnapshot) {
         
-        // جلب البيانات المباشرة إذا توفرت، وإلا نستخدم القديمة لكي لا تظهر شاشة بيضاء
         final Map<String, dynamic> data = studentSnapshot.hasData && studentSnapshot.data!.data() != null
             ? studentSnapshot.data!.data() as Map<String, dynamic>
             : widget.student.data() as Map<String, dynamic>;
@@ -326,7 +372,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                 ),
                 
               IconButton(
-                icon: Icon(Icons.event_busy_rounded, color: Colors.orangeAccent),
+                icon: const Icon(Icons.event_busy_rounded, color: Colors.orangeAccent),
                 tooltip: 'طلب إذن غياب',
                 onPressed: () => _showLeaveRequestDialog(context, isDarkMode, studentId, studentName, supervisorId),
               ),
