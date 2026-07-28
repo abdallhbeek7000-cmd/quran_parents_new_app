@@ -10,6 +10,7 @@ import '../services/notification_service.dart';
 import 'login_page.dart';
 import 'update_checker.dart'; 
 import 'notifications_page.dart'; 
+import 'parent_activities_page.dart'; // 🚀 استيراد صفحة الأنشطة
 
 // 🎯 استدعاء التبويبات المفصولة
 import 'summary_tab.dart';
@@ -154,11 +155,9 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     }
   }
 
-  // 🚀 نافذة طلب إذن الغياب المعدلة (بدون كتابة + أسباب جاهزة + توقيت الإرسال + إشعار للمدير والمشرف)
   void _showLeaveRequestDialog(BuildContext context, bool isDarkMode, String studentId, String studentName, String supervisorId) {
     DateTime selectedDate = DateTime.now();
     
-    // الأسباب المعتمدة الجاهزة للاختيار
     final List<String> predefinedReasons = [
       "مرض",
       "سفر",
@@ -197,7 +196,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                         Text("طلب إذن غياب", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo')),
                         const SizedBox(height: 15),
                         
-                        // 📅 اختيار تاريخ الغياب
                         ListTile(
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                           tileColor: isDarkMode ? Colors.black26 : Colors.grey.shade100,
@@ -221,7 +219,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                         ),
                         const SizedBox(height: 15),
 
-                        // 🏷️ اختيارات أسباب الغياب المحددة جاهزة بدون مربع كتابة
                         Align(
                           alignment: Alignment.centerRight,
                           child: Text("حدد سبب الغياب:", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black87, fontFamily: 'Cairo')),
@@ -247,7 +244,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                         
                         const SizedBox(height: 22),
 
-                        // 🚀 زر الإرسال المتطور
                         SizedBox(
                           width: double.infinity, height: 48,
                           child: ElevatedButton(
@@ -256,9 +252,8 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                             ),
                             onPressed: () async {
-                              Navigator.pop(context); // إغلاق النافذة
+                              Navigator.pop(context);
 
-                              // 🕒 حساب واستخراج الوقت الحالي للطلب بدقة (مثال: 04:30 PM)
                               final DateTime now = DateTime.now();
                               final String formattedHour = now.hour > 12 ? (now.hour - 12).toString().padLeft(2, '0') : (now.hour == 0 ? "12" : now.hour.toString().padLeft(2, '0'));
                               final String formattedMinute = now.minute.toString().padLeft(2, '0');
@@ -268,19 +263,17 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                               String notifyTitle = "📩 طلب استئذان جديد";
                               String notifyBody = "أرسل ولي أمر الطالب $studentName طلب استئذان للغياب يوم (${selectedDate.year}-${selectedDate.month}-${selectedDate.day})، السبب: ($selectedReason) - وقت الإرسال: $sendTimeStr";
 
-                              // 1️⃣ حفظ الطلب في قاعدة البيانات
                               await FirebaseFirestore.instance.collection('leave_requests').add({
                                 'studentId': studentId,
                                 'studentName': studentName,
                                 'supervisorId': supervisorId,
                                 'reason': selectedReason,
                                 'date': "${selectedDate.year}-${selectedDate.month}-${selectedDate.day}",
-                                'requestTime': sendTimeStr, // الوقت الدقيق للإرسال
+                                'requestTime': sendTimeStr,
                                 'status': 'pending', 
                                 'timestamp': FieldValue.serverTimestamp(),
                               });
 
-                              // 2️⃣ إرسال إشعار فوري للمشرف
                               if (supervisorId.isNotEmpty) {
                                 NotificationService.sendAndSaveNotification(
                                   studentId: supervisorId,
@@ -291,7 +284,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                                 ).catchError((e) => print("فشل إرسال إشعار المشرف: $e"));
                               }
 
-                              // 3️⃣ 🔥 جلب معرفات المدراء وإرسال إشعار فوري للمدير كذلك!
                               try {
                                 final managerDocs = await FirebaseFirestore.instance
                                     .collection('users')
@@ -300,7 +292,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
 
                                 for (var manager in managerDocs.docs) {
                                   NotificationService.sendAndSaveNotification(
-                                    studentId: manager.id, // إرسال الإشعار للمدير
+                                    studentId: manager.id,
                                     title: "👑 $notifyTitle",
                                     body: notifyBody,
                                     type: "leave_request_pending",
@@ -458,6 +450,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
 
                     int presentCount = totalSessions - absentCount;
 
+                    // 🎯 التنقل بين التبويبات الخمسة
                     switch (_currentTabIndex) {
                       case 0: 
                         return RefreshIndicator(
@@ -468,8 +461,11 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                         if (sessionSnapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
                         return DailyLogTab(sortedDocs: sortedDocs, isCompletedStudent: isCompletedStudent, isDarkMode: isDarkMode);
                       case 2: 
-                        return HonorBoardTab(allWinners: allWinners, studentImagesCache: studentImagesCache, isHonorLoading: _isHonorLoading, currentStudentSerial: serialStr, isDarkMode: isDarkMode);
+                        // 🚀 🚌 عرض صفحة الأنشطة والرحلات التفاعلية
+                        return ParentActivitiesPage(studentId: studentId, studentName: studentName);
                       case 3: 
+                        return HonorBoardTab(allWinners: allWinners, studentImagesCache: studentImagesCache, isHonorLoading: _isHonorLoading, currentStudentSerial: serialStr, isDarkMode: isDarkMode);
+                      case 4: 
                         return ParentChatTab(studentId: studentId, studentName: studentName, supervisorId: supervisorId, supervisorName: supervisorName, isDarkMode: isDarkMode);
                       default:
                         return const SizedBox();
@@ -589,9 +585,10 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     );
   }
 
+  // 🚀 شريط التنقل السفلي المطور ليدعم 5 عناصر
   Widget _buildDraggableLiquidNavBar(bool isDarkMode) {
     return Positioned(
-      bottom: 25, left: 20, right: 20, height: 70,
+      bottom: 25, left: 15, right: 15, height: 70,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(35),
         child: BackdropFilter(
@@ -605,10 +602,10 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final itemWidth = constraints.maxWidth / 4; 
+                final itemWidth = constraints.maxWidth / 5; // 🎯 تقسيم العرض على 5 عناصر
                 int closestIndex = _currentTabIndex;
                 if (_isDragging && _dragPosition != null) {
-                  closestIndex = ((_dragPosition! + (itemWidth / 2)) / itemWidth).round().clamp(0, 3); 
+                  closestIndex = ((_dragPosition! + (itemWidth / 2)) / itemWidth).round().clamp(0, 4); 
                 }
 
                 return GestureDetector(
@@ -623,14 +620,14 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                   onHorizontalDragEnd: (details) {
                     setState(() {
                       _isDragging = false;
-                      if (_dragPosition != null) _currentTabIndex = ((_dragPosition! + (itemWidth / 2)) / itemWidth).round().clamp(0, 3);
+                      if (_dragPosition != null) _currentTabIndex = ((_dragPosition! + (itemWidth / 2)) / itemWidth).round().clamp(0, 4);
                       _dragPosition = null;
                     });
                   },
                   onTapUp: (details) {
                     bool isRtl = Directionality.of(context) == TextDirection.rtl;
                     double tapPos = isRtl ? constraints.maxWidth - details.localPosition.dx : details.localPosition.dx;
-                    setState(() => _currentTabIndex = (tapPos / itemWidth).floor().clamp(0, 3));
+                    setState(() => _currentTabIndex = (tapPos / itemWidth).floor().clamp(0, 4));
                   },
                   child: Stack(
                     children: [
@@ -646,7 +643,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                             child: BackdropFilter(
                               filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
                               child: Container(
-                                width: 56, height: 56,
+                                width: 50, height: 50,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: isDarkMode ? Colors.white.withOpacity(0.15) : primaryColor.withOpacity(0.6),
@@ -662,8 +659,9 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                         children: [
                           _buildNavItem(0, Icons.analytics_outlined, Icons.analytics_rounded, 'الخلاصة', itemWidth, isDarkMode, closestIndex),
                           _buildNavItem(1, Icons.history_edu_outlined, Icons.history_edu_rounded, 'السجل', itemWidth, isDarkMode, closestIndex),
-                          _buildNavItem(2, Icons.stars_outlined, Icons.stars_rounded, 'التميز', itemWidth, isDarkMode, closestIndex),
-                          _buildNavItem(3, Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'تواصل', itemWidth, isDarkMode, closestIndex), 
+                          _buildNavItem(2, Icons.directions_bus_outlined, Icons.directions_bus_filled_rounded, 'الأنشطة', itemWidth, isDarkMode, closestIndex), // 🚀 الخيار الجديد بالمنتصف
+                          _buildNavItem(3, Icons.stars_outlined, Icons.stars_rounded, 'التميز', itemWidth, isDarkMode, closestIndex),
+                          _buildNavItem(4, Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'تواصل', itemWidth, isDarkMode, closestIndex), 
                         ],
                       ),
                     ],
@@ -685,13 +683,13 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
         duration: const Duration(milliseconds: 250),
         transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: FadeTransition(opacity: anim, child: child)),
         child: isHovered
-            ? Icon(filledIcon, key: ValueKey('icon_selected_$index'), color: Colors.white, size: 28)
+            ? Icon(filledIcon, key: ValueKey('icon_selected_$index'), color: Colors.white, size: 26)
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center, key: ValueKey('icon_unselected_$index'),
                 children: [
-                  Icon(outlineIcon, color: isDarkMode ? Colors.white54 : primaryColor.withOpacity(0.5), size: 24),
+                  Icon(outlineIcon, color: isDarkMode ? Colors.white54 : primaryColor.withOpacity(0.5), size: 22),
                   const SizedBox(height: 2),
-                  Text(label, style: TextStyle(color: isDarkMode ? Colors.white54 : primaryColor.withOpacity(0.7), fontSize: 10, fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+                  Text(label, style: TextStyle(color: isDarkMode ? Colors.white54 : primaryColor.withOpacity(0.7), fontSize: 9, fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
                 ],
               ),
       ),
@@ -702,8 +700,9 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     switch (index) {
       case 0: return 'ملخص أداء: $studentName';
       case 1: return 'السجل اليومي للحفظ والمراجعة';
-      case 2: return 'لوحة الشرف والتميز';
-      case 3: return 'التواصل مع المشرف'; 
+      case 2: return 'دعوات الرحلات والأنشطة 🚌';
+      case 3: return 'لوحة الشرف والتميز';
+      case 4: return 'التواصل مع المشرف'; 
       default: return 'متابعة الطالب';
     }
   }
