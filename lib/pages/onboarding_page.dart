@@ -45,10 +45,44 @@ class _OnboardingPageState extends State<OnboardingPage> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_seen_onboarding', true);
 
+    DocumentSnapshot targetStudent = widget.student;
+
+    try {
+      // 🎯 جلب الدورة النشطة والتأكد من فتح ملف الطالب التابع للدورة الفعالة
+      final cycleSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isClosed', isEqualTo: false)
+          .limit(1)
+          .get();
+
+      if (cycleSnap.docs.isNotEmpty) {
+        String activeCycleId = cycleSnap.docs.first.id;
+        var currentData = widget.student.data() as Map<String, dynamic>?;
+
+        if (currentData != null) {
+          var serial = currentData['serial'];
+          var studentQuery = await FirebaseFirestore.instance
+              .collection('students')
+              .where('serial', isEqualTo: serial)
+              .get();
+
+          for (var doc in studentQuery.docs) {
+            var data = doc.data();
+            if (data['cycleId'] == activeCycleId) {
+              targetStudent = doc;
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print("Error finding active student doc in onboarding: $e");
+    }
+
     if (mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => ParentHomePage(student: widget.student)),
+        MaterialPageRoute(builder: (context) => ParentHomePage(student: targetStudent)),
       );
     }
   }

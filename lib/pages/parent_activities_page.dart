@@ -80,7 +80,8 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
                   var data = doc.data() as Map<String, dynamic>;
                   String targetType = data['targetType'] ?? 'all';
                   if (targetType == 'all') return true;
-                  List<dynamic> targetIds = data['targetStudentIds'] ?? [];
+
+                  List<dynamic> targetIds = List.from(data['targetStudentIds'] ?? []);
                   return targetIds.contains(widget.studentId);
                 }).toList();
 
@@ -104,7 +105,7 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
                     }
                     bool isExpired = deadline != null ? DateTime.now().isAfter(deadline) : false;
 
-                    return _buildParentActivityCard(activityId, data, isExpired, isDark);
+                    return _buildParentActivityCard(context, activityId, data, isExpired, isDark);
                   },
                 );
               },
@@ -115,7 +116,7 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
     );
   }
 
-  Widget _buildParentActivityCard(String activityId, Map<String, dynamic> data, bool isExpired, bool isDark) {
+  Widget _buildParentActivityCard(BuildContext context, String activityId, Map<String, dynamic> data, bool isExpired, bool isDark) {
     String title = data['title'] ?? 'نشاط ترفيهي';
     String details = data['details'] ?? '';
     String imageUrl = data['imageUrl'] ?? '';
@@ -231,7 +232,7 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
                                         elevation: currentStatus == 'approved' ? 3 : 0,
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                       ),
-                                      onPressed: () => _updateResponse(activityId, title, 'approved', isDark),
+                                      onPressed: () => _confirmAction(context, activityId, title, 'approved', isDark, widget.studentId, widget.studentName),
                                       icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
                                       label: Text(
                                         "موافق ✅",
@@ -247,7 +248,7 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
                                         elevation: currentStatus == 'rejected' ? 3 : 0,
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                       ),
-                                      onPressed: () => _updateResponse(activityId, title, 'rejected', isDark),
+                                      onPressed: () => _confirmAction(context, activityId, title, 'rejected', isDark, widget.studentId, widget.studentName),
                                       icon: const Icon(Icons.cancel_rounded, color: Colors.white, size: 18),
                                       label: Text(
                                         "اعتذار ❌",
@@ -272,7 +273,66 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
     );
   }
 
-  // 🔔 🚀 أداة إظهار التنبيه الزجاجي الانسيابي من أعلى الشاشة
+  void _confirmAction(
+    BuildContext context,
+    String activityId,
+    String activityTitle,
+    String targetStatus,
+    bool isDark,
+    String studentId,
+    String studentName,
+  ) {
+    bool isApprove = targetStatus == 'approved';
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xff1e293b) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            isApprove ? "تأكيد الموافقة 🚌" : "تأكيد الاعتذار ❌",
+            style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xff425c75)),
+          ),
+          content: Text(
+            isApprove
+                ? "هل أنت متأكد من موافقتك على مشاركة الطالب ($studentName) في ($activityTitle)؟"
+                : "هل أنت متأكد من الاعتذار عن مشاركة الطالب ($studentName) في ($activityTitle)؟",
+            style: TextStyle(fontFamily: 'Cairo', color: isDark ? Colors.white70 : Colors.black87),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text("إلغاء", style: TextStyle(fontFamily: 'Cairo', color: Colors.grey, fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isApprove ? Colors.green : Colors.redAccent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _updateResponse(
+                  context,
+                  activityId,
+                  activityTitle,
+                  targetStatus,
+                  isDark,
+                  studentId,
+                  studentName,
+                );
+              },
+              child: Text(
+                isApprove ? "تأكيد الموافقة" : "تأكيد الاعتذار",
+                style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showTopBannerToast({
     required BuildContext context,
     required String title,
@@ -281,103 +341,121 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
     required Color color,
     required bool isDark,
   }) {
-    late OverlayEntry overlayEntry;
-    overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        top: MediaQuery.of(context).padding.top + 10,
-        left: 20,
-        right: 20,
-        child: Material(
-          color: Colors.transparent,
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: -100.0, end: 0.0),
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOutBack,
-            builder: (context, value, child) {
-              return Transform.translate(
-                offset: Offset(0, value),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xff1e293b).withOpacity(0.9) : Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: color.withOpacity(0.6), width: 1.5),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
-                            blurRadius: 15,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: color.withOpacity(0.15),
-                              shape: BoxShape.circle,
+    late final OverlayEntry overlayEntry = OverlayEntry(
+      builder: (_) {
+        return Positioned(
+          top: MediaQuery.of(context).padding.top + 10,
+          left: 20,
+          right: 20,
+          child: Material(
+            color: Colors.transparent,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: -100.0, end: 0.0),
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOutBack,
+              builder: (context, value, child) {
+                return Transform.translate(
+                  offset: Offset(0, value),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xff1e293b).withOpacity(0.9) : Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: color.withOpacity(0.6), width: 1.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 15,
+                              offset: const Offset(0, 6),
                             ),
-                            child: Icon(icon, color: color, size: 24),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  title,
-                                  style: TextStyle(
-                                    fontFamily: 'Cairo',
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                    color: isDark ? Colors.white : primaryColor,
-                                  ),
-                                ),
-                                Text(
-                                  message,
-                                  style: TextStyle(
-                                    fontFamily: 'Cairo',
-                                    fontSize: 12,
-                                    color: isDark ? Colors.white70 : Colors.black87,
-                                  ),
-                                ),
-                              ],
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: color.withOpacity(0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(icon, color: color, size: 24),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    title,
+                                    style: TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: isDark ? Colors.white : color,
+                                    ),
+                                  ),
+                                  Text(
+                                    message,
+                                    style: TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontSize: 12,
+                                      color: isDark ? Colors.white70 : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
 
     Overlay.of(context).insert(overlayEntry);
 
-    // إزالة التنبيه تلقائياً بعد 3 ثوانٍ
     Future.delayed(const Duration(seconds: 3), () {
-      overlayEntry.remove();
+      if (overlayEntry.mounted) {
+        overlayEntry.remove();
+      }
     });
   }
 
-  Future<void> _updateResponse(String activityId, String activityTitle, String status, bool isDark) async {
+  Future<void> _updateResponse(
+    BuildContext context,
+    String activityId,
+    String activityTitle,
+    String status,
+    bool isDark,
+    String studentId,
+    String studentName,
+  ) async {
     try {
-      await FirebaseFirestore.instance.collection('activities').doc(activityId).collection('responses').doc(widget.studentId).set({
-        'studentId': widget.studentId,
-        'studentName': widget.studentName,
-        'status': status,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await FirebaseFirestore.instance
+          .collection('activities')
+          .doc(activityId)
+          .collection('responses')
+          .doc(studentId)
+          .set(
+            {
+              'studentId': studentId,
+              'studentName': studentName,
+              'status': status,
+              'updatedAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
 
       try {
         final managerQuery = await FirebaseFirestore.instance
@@ -385,11 +463,14 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
             .where('role', isEqualTo: 'manager')
             .get();
 
-        String statusText = status == 'approved' ? "الموافقة على المشاركة ✅" : "الاعتذار عن المشاركة ❌";
-        String notifyTitle = "🚌 رد جديد على نشاط: $activityTitle";
-        String notifyBody = "أفاد ولي أمر الطالب (${widget.studentName}) بـ $statusText في النشاط/الرحلة.";
+        final statusText = status == 'approved'
+            ? "الموافقة على المشاركة ✅"
+            : "الاعتذار عن المشاركة ❌";
+        final notifyTitle = "🚌 رد جديد على نشاط: $activityTitle";
+        final notifyBody =
+            "أفاد ولي أمر الطالب ($studentName) بـ $statusText في النشاط/الرحلة.";
 
-        for (var managerDoc in managerQuery.docs) {
+        for (final managerDoc in managerQuery.docs) {
           NotificationService.sendAndSaveNotification(
             studentId: managerDoc.id,
             title: notifyTitle,
@@ -402,12 +483,11 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
         print("خطأ أثناء استعلام المدراء للإشعار: $e");
       }
 
-      if (!mounted) return;
+      if (!context.mounted) return;
 
-      // 🚀 إظهار الإشعار العلوي الأنيق
       _showTopBannerToast(
         context: context,
-        title: status == 'approved' ? "تم القبول بنجاح! 🎉" : "تم تسليط الاعتذار 👍",
+        title: status == 'approved' ? "تم القبول بنجاح! 🎉" : "تم تسجيل الاعتذار 👍",
         message: status == 'approved'
             ? "تم تسجيل موافقتك على المشاركة وإرسال إشعار للإدارة."
             : "تم توثيق الاعتذار عن المشاركة وإشعار الإدارة.",
@@ -415,9 +495,8 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
         color: status == 'approved' ? Colors.green : Colors.orangeAccent,
         isDark: isDark,
       );
-
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       _showTopBannerToast(
         context: context,
         title: "خطأ في الإرسال ⚠️",

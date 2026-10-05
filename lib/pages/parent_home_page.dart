@@ -10,9 +10,8 @@ import '../services/notification_service.dart';
 import 'login_page.dart';
 import 'update_checker.dart'; 
 import 'notifications_page.dart'; 
-import 'parent_activities_page.dart'; // 🚀 استيراد صفحة الأنشطة
+import 'parent_activities_page.dart'; 
 
-// 🎯 استدعاء التبويبات المفصولة
 import 'summary_tab.dart';
 import 'daily_log_tab.dart';
 import 'honor_board_tab.dart';
@@ -56,9 +55,9 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     _bgController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
     _bgAnimation = Tween<double>(begin: -10, end: 20).animate(CurvedAnimation(parent: _bgController, curve: Curves.easeInOutSine));
 
+    _fetchActiveSiblings();
     _loadHonorBoardAndImages();
     _saveDeviceToken(); 
-    _fetchSiblings(); 
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       UpdateChecker.checkForUpdates(context);
@@ -71,10 +70,57 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     super.dispose();
   }
 
-  void _fetchSiblings() async {
+  // 🎯 دالة جلب الدورة الفعالة تلقائياً ومباشرة من مجموعة cycles
+  Future<String> _getActiveCycleId(Map<String, dynamic> studentData) async {
     try {
-      final currentData = widget.student.data() as Map<String, dynamic>;
+      // 1. جلب الدورة الفعالة من مجموعة cycles بناءً على active: true
+      var activeSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('active', isEqualTo: true)
+          .limit(1)
+          .get();
+
+      if (activeSnap.docs.isNotEmpty) {
+        return activeSnap.docs.first.id;
+      }
+
+      // 2. فحص بحقل isCurrent == true
+      var currentSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isCurrent', isEqualTo: true)
+          .limit(1)
+          .get();
+
+      if (currentSnap.docs.isNotEmpty) {
+        return currentSnap.docs.first.id;
+      }
+
+      // 3. فحص بحقل status == 'active'
+      var statusSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('status', isEqualTo: 'active')
+          .limit(1)
+          .get();
+
+      if (statusSnap.docs.isNotEmpty) {
+        return statusSnap.docs.first.id;
+      }
+    } catch (e) {
+      print("خطأ في جلب الدورة الفعالة تلقائياً: $e");
+    }
+
+    // 4. خيار احتياطي أخيرة: cycleId المربوط بالطالب
+    return studentData['cycleId']?.toString().trim() ?? '';
+  }
+
+  // 🎯 جلب الأبناء المسجلين في نفس الدورة الحالية فقط
+  void _fetchActiveSiblings() async {
+    try {
+      final currentData = widget.student.data() as Map<String, dynamic>?;
+      if (currentData == null) return;
+
       final String phone = currentData['phone']?.toString().trim() ?? '';
+      final String activeCycleId = await _getActiveCycleId(currentData);
 
       if (phone.isNotEmpty) {
         final querySnapshot = await FirebaseFirestore.instance
@@ -84,12 +130,23 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
 
         if (mounted) {
           setState(() {
-            siblings = querySnapshot.docs.where((doc) => doc.id != widget.student.id).toList();
+            siblings = querySnapshot.docs.where((doc) {
+              if (doc.id == widget.student.id) return false;
+
+              var data = doc.data() as Map<String, dynamic>;
+              String docCycleId = data['cycleId']?.toString().trim() ?? '';
+
+              if (activeCycleId.isNotEmpty) {
+                return docCycleId == activeCycleId;
+              } else {
+                return docCycleId.isNotEmpty;
+              }
+            }).toList();
           });
         }
       }
     } catch (e) {
-      print("Error fetching siblings: $e");
+      print("Error fetching active siblings: $e");
     }
   }
 
@@ -111,7 +168,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
       
       for (var doc in honorSnapshot.docs) {
         var data = doc.data();
-        
         List<dynamic> knights = data.containsKey('knights') ? data['knights'] : [];
         
         if (knights.isNotEmpty) {
@@ -155,20 +211,12 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     }
   }
 
-  void _showLeaveRequestDialog(BuildContext context, bool isDarkMode, String studentId, String studentName, String supervisorId) {
+  // 🛡️ نافذة طلب الغياب المحدثة مع جلب cycleId تلقائياً
+  void _showLeaveRequestDialog(BuildContext context, bool isDarkMode, String studentId, String studentName, String supervisorId, Map<String, dynamic> studentData) {
     DateTime selectedDate = DateTime.now();
-    
-    final List<String> predefinedReasons = [
-      "مرض",
-      "سفر",
-      "دراسة",
-      "حالة وفاة",
-      "عمل",
-      "زيارة",
-      "لم يحضر الطالب"
-    ];
-
+    final List<String> predefinedReasons = ["مرض", "سفر", "دراسة", "حالة وفاة", "عمل", "زيارة", "لم يحضر الطالب"];
     String selectedReason = predefinedReasons.first;
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
@@ -195,13 +243,12 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                         const SizedBox(height: 8),
                         Text("طلب إذن غياب", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo')),
                         const SizedBox(height: 15),
-                        
                         ListTile(
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                           tileColor: isDarkMode ? Colors.black26 : Colors.grey.shade100,
                           leading: Icon(Icons.calendar_month_rounded, color: accentGold),
                           title: Text("تاريخ الغياب: ${selectedDate.year}-${selectedDate.month}-${selectedDate.day}", style: TextStyle(fontFamily: 'Cairo', fontSize: 13, color: isDarkMode ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
-                          onTap: () async {
+                          onTap: isSubmitting ? null : () async {
                             final DateTime? picked = await showDatePicker(
                               context: context, initialDate: selectedDate, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 30)),
                               builder: (context, child) {
@@ -218,16 +265,13 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                           },
                         ),
                         const SizedBox(height: 15),
-
                         Align(
                           alignment: Alignment.centerRight,
                           child: Text("حدد سبب الغياب:", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black87, fontFamily: 'Cairo')),
                         ),
                         const SizedBox(height: 8),
                         Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.center,
+                          spacing: 8, runSpacing: 8, alignment: WrapAlignment.center,
                           children: predefinedReasons.map((reason) {
                             final bool isSelected = selectedReason == reason;
                             return ChoiceChip(
@@ -235,84 +279,99 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                               selected: isSelected,
                               selectedColor: accentGold,
                               backgroundColor: isDarkMode ? Colors.black38 : Colors.grey.shade200,
-                              onSelected: (val) {
-                                if (val) setDialogState(() => selectedReason = reason);
-                              },
+                              onSelected: isSubmitting ? null : (val) { if (val) setDialogState(() => selectedReason = reason); },
                             );
                           }).toList(),
                         ),
-                        
                         const SizedBox(height: 22),
-
                         SizedBox(
                           width: double.infinity, height: 48,
                           child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: accentGold,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                            ),
-                            onPressed: () async {
-                              Navigator.pop(context);
+                            style: ElevatedButton.styleFrom(backgroundColor: accentGold, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                            onPressed: isSubmitting ? null : () async {
+                              setDialogState(() => isSubmitting = true);
 
-                              final DateTime now = DateTime.now();
-                              final String formattedHour = now.hour > 12 ? (now.hour - 12).toString().padLeft(2, '0') : (now.hour == 0 ? "12" : now.hour.toString().padLeft(2, '0'));
-                              final String formattedMinute = now.minute.toString().padLeft(2, '0');
-                              final String period = now.hour >= 12 ? "PM" : "AM";
-                              final String sendTimeStr = "$formattedHour:$formattedMinute $period";
-
-                              String notifyTitle = "📩 طلب استئذان جديد";
-                              String notifyBody = "أرسل ولي أمر الطالب $studentName طلب استئذان للغياب يوم (${selectedDate.year}-${selectedDate.month}-${selectedDate.day})، السبب: ($selectedReason) - وقت الإرسال: $sendTimeStr";
-
-                              await FirebaseFirestore.instance.collection('leave_requests').add({
-                                'studentId': studentId,
-                                'studentName': studentName,
-                                'supervisorId': supervisorId,
-                                'reason': selectedReason,
-                                'date': "${selectedDate.year}-${selectedDate.month}-${selectedDate.day}",
-                                'requestTime': sendTimeStr,
-                                'status': 'pending', 
-                                'timestamp': FieldValue.serverTimestamp(),
-                              });
-
-                              if (supervisorId.isNotEmpty) {
-                                NotificationService.sendAndSaveNotification(
-                                  studentId: supervisorId,
-                                  title: notifyTitle,
-                                  body: notifyBody,
-                                  type: "leave_request_pending",
-                                  context: context,
-                                ).catchError((e) => print("فشل إرسال إشعار المشرف: $e"));
-                              }
+                              final String targetDateStr = "${selectedDate.year}-${selectedDate.month}-${selectedDate.day}";
 
                               try {
-                                final managerDocs = await FirebaseFirestore.instance
-                                    .collection('users')
-                                    .where('role', isEqualTo: 'manager')
+                                final existingRequests = await FirebaseFirestore.instance
+                                    .collection('leave_requests')
+                                    .where('studentId', isEqualTo: studentId)
+                                    .where('date', isEqualTo: targetDateStr)
+                                    .limit(1)
                                     .get();
 
-                                for (var manager in managerDocs.docs) {
+                                if (existingRequests.docs.isNotEmpty) {
+                                  setDialogState(() => isSubmitting = false);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        backgroundColor: Colors.orangeAccent,
+                                        content: Text("⚠️ لقد قمت بإرسال طلب غياب لهذا اليوم مسبقاً!", style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+
+                                String activeCycleId = await _getActiveCycleId(studentData);
+
+                                final DateTime now = DateTime.now();
+                                final String formattedHour = now.hour > 12 ? (now.hour - 12).toString().padLeft(2, '0') : (now.hour == 0 ? "12" : now.hour.toString().padLeft(2, '0'));
+                                final String formattedMinute = now.minute.toString().padLeft(2, '0');
+                                final String period = now.hour >= 12 ? "PM" : "AM";
+                                final String sendTimeStr = "$formattedHour:$formattedMinute $period";
+
+                                String notifyTitle = "📩 طلب استئذان جديد";
+                                String notifyBody = "أرسل ولي أمر الطالب $studentName طلب استئذان للغياب يوم ($targetDateStr)، السبب: ($selectedReason) - وقت الإرسال: $sendTimeStr";
+
+                                await FirebaseFirestore.instance.collection('leave_requests').add({
+                                  'studentId': studentId,
+                                  'studentName': studentName,
+                                  'supervisorId': supervisorId,
+                                  'reason': selectedReason,
+                                  'date': targetDateStr,
+                                  'requestTime': sendTimeStr,
+                                  'status': 'pending', 
+                                  'cycleId': activeCycleId,
+                                  'timestamp': FieldValue.serverTimestamp(),
+                                });
+
+                                if (supervisorId.isNotEmpty) {
                                   NotificationService.sendAndSaveNotification(
-                                    studentId: manager.id,
-                                    title: "👑 $notifyTitle",
-                                    body: notifyBody,
-                                    type: "leave_request_pending",
-                                    context: context,
-                                  ).catchError((e) => print("فشل إرسال إشعار المدير: $e"));
+                                    studentId: supervisorId, title: notifyTitle, body: notifyBody, type: "leave_request_pending", context: context,
+                                  ).catchError((e) => print("فشل إرسال إشعار المشرف: $e"));
+                                }
+
+                                try {
+                                  final managerDocs = await FirebaseFirestore.instance.collection('users').where('role', isEqualTo: 'manager').get();
+                                  for (var manager in managerDocs.docs) {
+                                    NotificationService.sendAndSaveNotification(
+                                      studentId: manager.id, title: "👑 $notifyTitle", body: notifyBody, type: "leave_request_pending", context: context,
+                                    ).catchError((e) => print("فشل إرسال إشعار المدير: $e"));
+                                  }
+                                } catch (e) {
+                                  print("خطأ في جلب المدراء للإشعار: $e");
+                                }
+
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(backgroundColor: Colors.green, content: Text("✅ تم إرسال طلب الغياب للمشرف والمدير بنجاح", style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold))),
+                                  );
                                 }
                               } catch (e) {
-                                print("خطأ في جلب المدراء للإشعار: $e");
-                              }
-
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    backgroundColor: Colors.green,
-                                    content: Text("✅ تم إرسال طلب الغياب للمشرف والمدير بنجاح", style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
-                                  ),
-                                );
+                                setDialogState(() => isSubmitting = false);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text("حدث خطأ أثناء الإرسال: $e", style: const TextStyle(fontFamily: 'Cairo'))),
+                                  );
+                                }
                               }
                             },
-                            child: const Text("إرسال الطلب", style: TextStyle(color: Colors.white, fontFamily: 'Cairo', fontWeight: FontWeight.bold, fontSize: 15)),
+                            child: isSubmitting
+                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Text("إرسال الطلب", style: TextStyle(color: Colors.white, fontFamily: 'Cairo', fontWeight: FontWeight.bold, fontSize: 15)),
                           ),
                         )
                       ],
@@ -335,7 +394,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('students').doc(studentId).snapshots(),
       builder: (context, studentSnapshot) {
-        
         final Map<String, dynamic> data = studentSnapshot.hasData && studentSnapshot.data!.data() != null
             ? studentSnapshot.data!.data() as Map<String, dynamic>
             : widget.student.data() as Map<String, dynamic>;
@@ -362,26 +420,20 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                   tooltip: 'تبديل الأبناء',
                   onPressed: () => _showLiquidSiblingSwitcher(isDarkMode),
                 ),
-                
               IconButton(
                 icon: const Icon(Icons.event_busy_rounded, color: Colors.orangeAccent),
                 tooltip: 'طلب إذن غياب',
-                onPressed: () => _showLeaveRequestDialog(context, isDarkMode, studentId, studentName, supervisorId),
+                onPressed: () => _showLeaveRequestDialog(context, isDarkMode, studentId, studentName, supervisorId, data),
               ),
-              
               IconButton(
                 icon: Icon(isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded, color: isDarkMode ? goldColor : primaryColor),
                 tooltip: isDarkMode ? 'تفعيل الوضع النهاري' : 'تفعيل الوضع الليلي',
-                onPressed: () {
-                  Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
-                },
+                onPressed: () => Provider.of<ThemeProvider>(context, listen: false).toggleTheme(),
               ),
-
               IconButton(icon: Icon(Icons.notifications_none_rounded, color: isDarkMode ? goldColor : primaryColor), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => NotificationsPage(studentId: studentId)))),
               IconButton(icon: Icon(Icons.logout_rounded, color: isDarkMode ? Colors.redAccent : Colors.red), onPressed: () => _showLogoutDialog(isDarkMode)),
             ],
           ),
-          
           body: Stack(
             children: [
               Container(
@@ -393,27 +445,23 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                   ),
                 ),
               ),
-              
               AnimatedBuilder(
                 animation: _bgAnimation,
                 builder: (context, child) {
                   return Stack(
                     children: [
                       Positioned(
-                        top: -20 + _bgAnimation.value,
-                        left: -50 - (_bgAnimation.value / 2),
+                        top: -20 + _bgAnimation.value, left: -50 - (_bgAnimation.value / 2),
                         child: Container(width: 250, height: 250, decoration: BoxDecoration(shape: BoxShape.circle, color: isDarkMode ? goldColor.withOpacity(0.08) : goldColor.withOpacity(0.12))),
                       ),
                       Positioned(
-                        bottom: 100 - _bgAnimation.value,
-                        right: -60 + _bgAnimation.value,
+                        bottom: 100 - _bgAnimation.value, right: -60 + _bgAnimation.value,
                         child: Container(width: 300, height: 300, decoration: BoxDecoration(shape: BoxShape.circle, color: isDarkMode ? primaryColor.withOpacity(0.15) : primaryColor.withOpacity(0.2))),
                       ),
                     ],
                   );
                 },
               ),
-
               SafeArea(
                 bottom: false,
                 child: StreamBuilder<QuerySnapshot>(
@@ -450,7 +498,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
 
                     int presentCount = totalSessions - absentCount;
 
-                    // 🎯 التنقل بين التبويبات الخمسة
                     switch (_currentTabIndex) {
                       case 0: 
                         return RefreshIndicator(
@@ -461,7 +508,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                         if (sessionSnapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
                         return DailyLogTab(sortedDocs: sortedDocs, isCompletedStudent: isCompletedStudent, isDarkMode: isDarkMode);
                       case 2: 
-                        // 🚀 🚌 عرض صفحة الأنشطة والرحلات التفاعلية
                         return ParentActivitiesPage(studentId: studentId, studentName: studentName);
                       case 3: 
                         return HonorBoardTab(allWinners: allWinners, studentImagesCache: studentImagesCache, isHonorLoading: _isHonorLoading, currentStudentSerial: serialStr, isDarkMode: isDarkMode);
@@ -585,7 +631,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     );
   }
 
-  // 🚀 شريط التنقل السفلي المطور ليدعم 5 عناصر
   Widget _buildDraggableLiquidNavBar(bool isDarkMode) {
     return Positioned(
       bottom: 25, left: 15, right: 15, height: 70,
@@ -602,7 +647,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final itemWidth = constraints.maxWidth / 5; // 🎯 تقسيم العرض على 5 عناصر
+                final itemWidth = constraints.maxWidth / 5;
                 int closestIndex = _currentTabIndex;
                 if (_isDragging && _dragPosition != null) {
                   closestIndex = ((_dragPosition! + (itemWidth / 2)) / itemWidth).round().clamp(0, 4); 
@@ -659,7 +704,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                         children: [
                           _buildNavItem(0, Icons.analytics_outlined, Icons.analytics_rounded, 'الخلاصة', itemWidth, isDarkMode, closestIndex),
                           _buildNavItem(1, Icons.history_edu_outlined, Icons.history_edu_rounded, 'السجل', itemWidth, isDarkMode, closestIndex),
-                          _buildNavItem(2, Icons.directions_bus_outlined, Icons.directions_bus_filled_rounded, 'الأنشطة', itemWidth, isDarkMode, closestIndex), // 🚀 الخيار الجديد بالمنتصف
+                          _buildNavItem(2, Icons.directions_bus_outlined, Icons.directions_bus_filled_rounded, 'الأنشطة', itemWidth, isDarkMode, closestIndex),
                           _buildNavItem(3, Icons.stars_outlined, Icons.stars_rounded, 'التميز', itemWidth, isDarkMode, closestIndex),
                           _buildNavItem(4, Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'تواصل', itemWidth, isDarkMode, closestIndex), 
                         ],

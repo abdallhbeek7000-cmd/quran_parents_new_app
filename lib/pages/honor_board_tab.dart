@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class HonorBoardTab extends StatelessWidget {
@@ -23,47 +24,69 @@ class HonorBoardTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 120, top: 15), 
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // 🚀 1. ترويسة الصفحة (تم رفعها للأعلى لتملأ الفراغ)
-          Icon(Icons.workspace_premium_rounded, size: 70, color: goldColor.withOpacity(isDarkMode ? 0.8 : 0.6)),
-          const SizedBox(height: 10),
-          Text(
-            "منظومة تحفيز الطلاب الذكية",
-            style: TextStyle(fontFamily: 'Cairo', fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 8),
-            child: Text(
-              "يتم تحديث قائمة النجوم بشكل دوري من قبل إدارة المعهد لتكريم الطلاب الأكثر انضباطاً وتميزاً في الحفظ والمراجعة.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: isDarkMode ? Colors.white60 : Colors.grey.shade600, height: 1.5, fontWeight: FontWeight.w600),
-            ),
-          ),
-          
-          const SizedBox(height: 15),
-          Divider(color: isDarkMode ? Colors.white12 : Colors.black12, indent: 40, endIndent: 40),
-          const SizedBox(height: 15),
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isClosed', isEqualTo: false)
+          .limit(1)
+          .get(),
+      builder: (context, cycleSnap) {
+        String? activeCycleId;
+        if (cycleSnap.hasData && cycleSnap.data!.docs.isNotEmpty) {
+          activeCycleId = cycleSnap.data!.docs.first.id;
+        }
 
-          // 🚀 2. شبكة النجوم التفاعلية (The Adaptive Grid)
-          _buildHonorBoardGrid(),
-        ],
-      ),
+        // 🎯 فلترة الفائزين ليتم عرض المتميزين التابعين للدورة النشطة فقط
+        List<Map<String, dynamic>> activeWinners = allWinners.where((winner) {
+          if (activeCycleId == null) return true;
+          String? winnerCycleId = winner['cycleId']?.toString();
+          if (winnerCycleId == null || winnerCycleId.isEmpty) return true;
+          return winnerCycleId == activeCycleId;
+        }).toList();
+
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 120, top: 15), 
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // 🚀 1. ترويسة الصفحة
+              Icon(Icons.workspace_premium_rounded, size: 70, color: goldColor.withOpacity(isDarkMode ? 0.8 : 0.6)),
+              const SizedBox(height: 10),
+              Text(
+                "منظومة تحفيز الطلاب الذكية",
+                style: TextStyle(fontFamily: 'Cairo', fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 8),
+                child: Text(
+                  "يتم تحديث قائمة النجوم بشكل دوري من قبل إدارة المعهد لتكريم الطلاب الأكثر انضباطاً وتميزاً في الحفظ والمراجعة.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: isDarkMode ? Colors.white60 : Colors.grey.shade600, height: 1.5, fontWeight: FontWeight.w600),
+                ),
+              ),
+              
+              const SizedBox(height: 15),
+              Divider(color: isDarkMode ? Colors.white12 : Colors.black12, indent: 40, endIndent: 40),
+              const SizedBox(height: 15),
+
+              // 🚀 2. شبكة النجوم التفاعلية المفلوترة للدورة الجديدة
+              _buildHonorBoardGrid(activeWinners),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildHonorBoardGrid() {
+  Widget _buildHonorBoardGrid(List<Map<String, dynamic>> filteredWinners) {
     if (isHonorLoading) {
       return const Padding(
         padding: EdgeInsets.only(top: 50),
         child: Center(child: CircularProgressIndicator()),
       );
     }
-    if (allWinners.isEmpty) {
+    if (filteredWinners.isEmpty) {
       return Padding(
         padding: const EdgeInsets.only(top: 50),
         child: Column(
@@ -79,28 +102,25 @@ class HonorBoardTab extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15),
       child: GridView.builder(
-        shrinkWrap: true, // مهم جداً عشان ياخد مساحته جوا الـ SingleChildScrollView
+        shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        // 🚀 توزيع ذكي: يعرض 3 طلاب بالصف على الشاشات العادية، و2 لو الشاشة صغيرة جداً
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 140, 
-          childAspectRatio: 0.78, // نسبة الطول للعرض للكارت
+          childAspectRatio: 0.78,
           crossAxisSpacing: 12,
           mainAxisSpacing: 15,
         ),
-        itemCount: allWinners.length,
+        itemCount: filteredWinners.length,
         itemBuilder: (context, index) {
-          var winner = allWinners[index];
+          var winner = filteredWinners[index];
           String winnerSerialStr = winner['serial']?.toString() ?? '';
           String winnerName = winner['name'] ?? '';
           
-          // 🎯 التحقق إذا كان هذا الطالب هو ابن ولي الأمر الحالي
           bool isCurrent = (winnerSerialStr == currentStudentSerial && currentStudentSerial.isNotEmpty);
           String finalImageUrl = studentImagesCache[winnerSerialStr] ?? '';
 
           return _buildGlassContainer(
             padding: const EdgeInsets.all(8),
-            // إشعاع ذهبي خاص لكارت ابن ولي الأمر
             customColor: isCurrent ? goldColor.withOpacity(0.15) : (isDarkMode ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.5)),
             customBorderColor: isCurrent ? goldColor.withOpacity(0.8) : (isDarkMode ? Colors.white12 : Colors.white),
             child: Column(

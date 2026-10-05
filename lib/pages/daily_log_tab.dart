@@ -17,7 +17,7 @@ class DailyLogTab extends StatelessWidget {
   final Color primaryColor = const Color(0xff425c75);
   final Color accentGold = const Color(0xffd4af37);
 
-  // 🚀 دالة المساعدة لتحويل النصوص لتواريخ حقيقية
+  // 🚀 دالة تحويل النصوص لتواريخ حقيقية
   DateTime _parseDate(String dateStr) {
     try {
       List<String> parts = dateStr.split('-');
@@ -30,89 +30,161 @@ class DailyLogTab extends StatelessWidget {
     return DateTime(2000);
   }
 
+  // 🎯 جلب ID الدورة الفعالة حالياً بشكل ديناميكي بناءً على حقول Firestore الدقيقة
+  Future<String?> _getActiveCycleId() async {
+    try {
+      // 1. الفحص بالحقل الأساسي الصحيح: active == true
+      var activeSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('active', isEqualTo: true)
+          .limit(1)
+          .get();
+
+      if (activeSnap.docs.isNotEmpty) {
+        return activeSnap.docs.first.id;
+      }
+
+      // 2. فحص بحقل isCurrent == true
+      var currentSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isCurrent', isEqualTo: true)
+          .limit(1)
+          .get();
+
+      if (currentSnap.docs.isNotEmpty) {
+        return currentSnap.docs.first.id;
+      }
+
+      // 3. فحص بحقل status == 'active'
+      var statusSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('status', isEqualTo: 'active')
+          .limit(1)
+          .get();
+
+      if (statusSnap.docs.isNotEmpty) {
+        return statusSnap.docs.first.id;
+      }
+    } catch (e) {
+      print("خطأ في جلب الدورة الفعالة: $e");
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (sortedDocs.isEmpty) {
-      return Center(
-        child: _buildGlassContainer(
-          padding: const EdgeInsets.all(20),
-          child: Text(
-            "لا يوجد جلسات مسجلة بعد لهذا الطالب",
-            style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.grey[600], fontFamily: 'Cairo', fontSize: 14),
-          ),
-        ),
-      );
-    }
+    return FutureBuilder<String?>(
+      future: _getActiveCycleId(),
+      builder: (context, cycleSnap) {
+        if (cycleSnap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    // 🚀 تطبيق خوارزمية الترتيب الذكية (الاعتماد على التاريخ الحقيقي ثم الوقت)
-    List<QueryDocumentSnapshot> finalSortedList = List.from(sortedDocs);
-    finalSortedList.sort((a, b) {
-      var dataA = a.data() as Map<String, dynamic>;
-      var dataB = b.data() as Map<String, dynamic>;
+        String? activeCycleId = cycleSnap.data;
 
-      DateTime dateAObj = _parseDate(dataA['date'] ?? '');
-      DateTime dateBObj = _parseDate(dataB['date'] ?? '');
+        // 🚀 تصفية الجلسات المطابقة لحقل cycleId الخاص بالدورة الفعالة فقط
+        List<QueryDocumentSnapshot> activeCycleDocs = sortedDocs.where((doc) {
+          var data = doc.data() as Map<String, dynamic>;
+          String docCycleId = data['cycleId']?.toString().trim() ?? '';
+          
+          if (activeCycleId != null && activeCycleId.isNotEmpty) {
+            return docCycleId == activeCycleId;
+          }
+          return false;
+        }).toList();
 
-      int dateComparison = dateBObj.compareTo(dateAObj);
+        if (activeCycleDocs.isEmpty) {
+          return Center(
+            child: _buildGlassContainer(
+              padding: const EdgeInsets.all(20),
+              child: Text(
+                "لا توجد جلسات مسجلة في الدورة الحالية لهذا الطالب",
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white70 : Colors.grey[600], 
+                  fontFamily: 'Cairo', 
+                  fontSize: 14
+                ),
+              ),
+            ),
+          );
+        }
 
-      if (dateComparison == 0) {
-        Timestamp? tA = dataA['timestamp'] as Timestamp?;
-        Timestamp? tB = dataB['timestamp'] as Timestamp?;
-        if (tA != null && tB != null) return tB.compareTo(tA);
-        if (tA == null && tB != null) return -1;
-        if (tB == null && tA != null) return 1;
-      }
-      return dateComparison;
-    });
+        // 🚀 ترتيب جلسات الدورة النشطة بحسب التاريخ والوقت
+        List<QueryDocumentSnapshot> finalSortedList = List.from(activeCycleDocs);
+        finalSortedList.sort((a, b) {
+          var dataA = a.data() as Map<String, dynamic>;
+          var dataB = b.data() as Map<String, dynamic>;
 
-    return ListView.builder(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.only(top: 10, bottom: 120), 
-      itemCount: finalSortedList.length,
-      itemBuilder: (context, index) {
-        var session = finalSortedList[index].data() as Map<String, dynamic>;
-        int sessionNumber = finalSortedList.length - index; // 🚀 حساب رقم الجلسة
-        return _buildSessionItem(session, sessionNumber);
+          DateTime dateAObj = _parseDate(dataA['date'] ?? '');
+          DateTime dateBObj = _parseDate(dataB['date'] ?? '');
+
+          int dateComparison = dateBObj.compareTo(dateAObj);
+
+          if (dateComparison == 0) {
+            Timestamp? tA = dataA['timestamp'] as Timestamp?;
+            Timestamp? tB = dataB['timestamp'] as Timestamp?;
+            if (tA != null && tB != null) return tB.compareTo(tA);
+            if (tA == null && tB != null) return -1;
+            if (tB == null && tA != null) return 1;
+          }
+          return dateComparison;
+        });
+
+        return ListView.builder(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(top: 10, bottom: 120), 
+          itemCount: finalSortedList.length,
+          itemBuilder: (context, index) {
+            var session = finalSortedList[index].data() as Map<String, dynamic>;
+            int sessionNumber = finalSortedList.length - index;
+            return _buildSessionItem(session, sessionNumber);
+          },
+        );
       },
     );
   }
 
-  // 🚀 توحيد وديناميكية الواجهة لكل الحالات (غياب، اختبار، بدون تسميع، جلسة عادية)
+  // 🚀 توحيد الواجهة وتنسيق التسميعات والواجبات
   Widget _buildSessionItem(Map<String, dynamic> session, int sessionNumber) {
     final String sessionDate = session['date']?.toString() ?? 'بدون تاريخ';
     final bool isAbsent = session['absent'] ?? false;
     final bool isExam = session['isExam'] ?? false; 
-    final bool didNotRecite = session['didNotRecite'] ?? false; // 🚀 حالة حضر ولم يقرأ
+    final bool didNotRecite = session['didNotRecite'] ?? false;
     
-    // 🚀 معالجة تعدد المشرفين للواجهة
-    List<dynamic>? supNamesList = session['supervisorNames'];
-    final String supervisorName = (supNamesList != null && supNamesList.isNotEmpty) 
-        ? supNamesList.join(' ، ') 
-        : (session['supervisorName'] ?? 'غير محدد');
-        
-    final String supervisorLabel = (supNamesList != null && supNamesList.length > 1) 
-        ? "المشرفين" 
-        : "المشرف المسجِّل";
+    // 🎯 استخراج نظام الجزء إن وجد
+    int selectedJuz = 0;
+    if (session.containsKey('selectedJuz') && session['selectedJuz'] != null) {
+      selectedJuz = int.tryParse(session['selectedJuz'].toString()) ?? 0;
+    } else if (session['isJuzAmma'] == true) {
+      selectedJuz = 30;
+    }
 
-    // 🚀 جلب بيانات الإنجاز
+    // 🎯 استخراج المشرفين المخصصين
+    List<dynamic>? memoSupList = session['newMemoSupervisorNames'];
+    List<dynamic>? revSupList = session['reviewSupervisorNames'];
+    List<dynamic>? generalSupList = session['supervisorNames'];
+
+    String memoSupName = (memoSupList != null && memoSupList.isNotEmpty) ? memoSupList.join(' ، ') : '';
+    String revSupName = (revSupList != null && revSupList.isNotEmpty) ? revSupList.join(' ، ') : '';
+    String generalSupName = (generalSupList != null && generalSupList.isNotEmpty) 
+        ? generalSupList.join(' ، ') 
+        : (session['supervisorName'] ?? 'غير محدد');
+
     String nMemo = session['newMemorization']?.toString().trim() ?? '';
     String nRev = session['nearReview']?.toString().trim() ?? '';
     String fRev = session['farReview']?.toString().trim() ?? (isCompletedStudent ? (session['review']?.toString().trim() ?? '') : '');
     String sight = session['readingBySight']?.toString().trim() ?? '';
 
-    // 🚀 جلب التقييمات
     String memRating = session['memorizationRating'] ?? session['rating'] ?? "";
     String newRevRating = session['newReviewRating'] ?? session['reviewRating'] ?? session['rating'] ?? "";
     String oldRevRating = session['oldReviewRating'] ?? session['reviewRating'] ?? session['rating'] ?? "";
     String revRatingLegacy = session['reviewRating'] ?? session['rating'] ?? "";
 
-    // 🚀 جلب الواجبات
     String nHw = session['newHomework']?.toString().trim() ?? '';
     String nRevHw = session['newReviewHomework']?.toString().trim() ?? '';
     String oRevHw = session['oldReviewHomework']?.toString().trim() ?? '';
     String oldHw = session['homework']?.toString().trim() ?? '';
 
-    // 🚀 بناء مربعات الإنجاز
     List<Widget> activeBoxes = [];
     if (!isAbsent && !isExam && !didNotRecite) {
       if (isCompletedStudent && fRev.isNotEmpty) {
@@ -133,7 +205,6 @@ class DailyLogTab extends StatelessWidget {
                          : (didNotRecite ? Colors.blueGrey.withOpacity(0.4) : null)),
         child: Column(
           children: [
-            // 🚀 الـ Header الذكي ويتغير لونه وشعاره واسمه حسب الحالة
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -157,7 +228,6 @@ class DailyLogTab extends StatelessWidget {
                             color: isAbsent ? Colors.redAccent : (isExam ? Colors.teal : (didNotRecite ? Colors.blueGrey : (isDarkMode ? accentGold : primaryColor)))
                           ),
                           const SizedBox(width: 8),
-                          // 🚀 عرض رقم الجلسة للأهل
                           Text(
                             "الجلسة #$sessionNumber | $sessionDate", 
                             style: TextStyle(
@@ -175,18 +245,21 @@ class DailyLogTab extends StatelessWidget {
                         _buildCustomBadge("غائب ❌", isDarkMode ? Colors.white : Colors.red.shade700, Colors.redAccent.withOpacity(isDarkMode ? 0.4 : 0.2))
                       else if (isExam)
                         _buildCustomBadge("جلسة اختبار 📝", isDarkMode ? Colors.white : Colors.teal, Colors.teal.withOpacity(isDarkMode ? 0.4 : 0.2))
-                      else if (didNotRecite) // 🚀 بادج حالة عدم التسميع
-                        _buildCustomBadge("بدون تسميع ℹ️", isDarkMode ? Colors.white : Colors.blueGrey, Colors.blueGrey.withOpacity(isDarkMode ? 0.4 : 0.2))
+                      else if (didNotRecite)
+                        _buildCustomBadge("حضر ولم يسمّع ℹ️", isDarkMode ? Colors.white : Colors.blueGrey, Colors.blueGrey.withOpacity(isDarkMode ? 0.4 : 0.2))
                     ],
                   ),
                   
-                  // 🚀 التقييمات في سطر مستقل مع Wrap
                   if (!isAbsent && !isExam && !didNotRecite) ...[
                     const SizedBox(height: 10),
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
                       children: [
+                        // 🎯 تم تعديل صياغة واستدعاء دالة اسم الجزء بنجاح
+                        if (selectedJuz > 0)
+                          _buildCustomBadge("نظام: جزء ${_getJuzName(selectedJuz)} 📖", Colors.white, accentGold),
+
                         if (isCompletedStudent && revRatingLegacy.isNotEmpty)
                           _buildCustomBadge("مراجعة الختمة: $revRatingLegacy", isDarkMode ? Colors.white : _getRatingColor(revRatingLegacy), _getRatingColor(revRatingLegacy).withOpacity(isDarkMode ? 0.4 : 0.2)),
                         if (!isCompletedStudent) ...[
@@ -204,13 +277,18 @@ class DailyLogTab extends StatelessWidget {
               ),
             ),
             
-            // 🚀 تفاصيل الجلسة
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildMinimalistDetailRow(Icons.person_outline_rounded, supervisorLabel, supervisorName, isBold: true),
+                  if (memoSupName.isNotEmpty && revSupName.isNotEmpty && memoSupName != revSupName) ...[
+                    _buildMinimalistDetailRow(Icons.person_outline_rounded, "مشرف الحفظ", memoSupName, isBold: true),
+                    const SizedBox(height: 6),
+                    _buildMinimalistDetailRow(Icons.person_outline_rounded, "مشرف المراجعة", revSupName, isBold: true),
+                  ] else ...[
+                    _buildMinimalistDetailRow(Icons.person_outline_rounded, "المشرف المسجِّل", memoSupName.isNotEmpty ? memoSupName : (revSupName.isNotEmpty ? revSupName : generalSupName), isBold: true),
+                  ],
                   
                   if (isAbsent) ...[
                     const SizedBox(height: 10),
@@ -221,6 +299,7 @@ class DailyLogTab extends StatelessWidget {
                     ],
                   ],
 
+                  // 🎯 1. مربعات التسميع (تظهر فقط إذا سمّع الطالب)
                   if (!isAbsent && !isExam && !didNotRecite) ...[
                     Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
                     
@@ -241,8 +320,12 @@ class DailyLogTab extends StatelessWidget {
                         ),
                       Divider(color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9), height: 20),
                     ],
+                  ],
 
+                  // 🎯 2. مربع الواجب القادم (يظهر حتى لو "حضر ولم يسمّع")
+                  if (!isAbsent && !isExam) ...[
                     if (nHw.isNotEmpty || nRevHw.isNotEmpty || oRevHw.isNotEmpty || oldHw.isNotEmpty) ...[
+                      if (didNotRecite) const SizedBox(height: 10),
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -301,7 +384,6 @@ class DailyLogTab extends StatelessWidget {
                     const SizedBox(height: 10),
                   ],
 
-                  // 🚀 إظهار السلوك والنشاطات للطالب الذي حضر (حتى لو لم يسمّع)
                   if (!isAbsent && !isExam) ...[
                     if (didNotRecite) const SizedBox(height: 10),
                     _buildMinimalistDetailRow(Icons.emoji_emotions_outlined, "حالة سلوك الطالب بالحلقة", session['studentStatus'] ?? 'مهذب'),
@@ -335,6 +417,17 @@ class DailyLogTab extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _getJuzName(int juz) {
+    switch (juz) {
+      case 30: return "عمَّ (30)";
+      case 29: return "تبارك (29)";
+      case 28: return "قد سمع (28)";
+      case 27: return "الذاريات (27)";
+      case 26: return "الأحقاف (26)";
+      default: return "$juz";
+    }
   }
 
   Widget _buildHomeworkRow(String label, String value) {

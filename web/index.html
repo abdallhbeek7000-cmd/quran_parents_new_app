@@ -18,10 +18,10 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="تطبيق معهد الشيخ سعيد العبدالله للأهل">
 
   <!-- iOS meta tags & icons -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="quran_parents_new">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
@@ -29,20 +29,20 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>quran_parents_new</title>
+  <title>معهد الشيخ سعيد العبدالله - الأهل</title>
   <link rel="manifest" href="manifest.json">
 
   <script>
     // The value below is injected by flutter build, do not touch.
     const serviceWorkerVersion = null;
   </script>
-  <!-- This script adds the flutter initialization JS code -->
-  <script src="main.dart.js?v=2026_07_08"></script>
+  <!-- 🎯 التصحيح هنا: استدعاء محرك flutter.js الأساسي بدلاً من main.dart.js مباشرة -->
+  <script src="flutter.js" defer></script>
 </head>
 <body>
   <script>
     window.addEventListener('load', function(ev) {
-      // Download main.dart.js
+      // Download main.dart.js via Flutter engine
       _flutter.loader.loadEntrypoint({
         serviceWorker: {
           serviceWorkerVersion: serviceWorkerVersion,

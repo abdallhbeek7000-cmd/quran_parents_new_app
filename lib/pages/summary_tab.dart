@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'student_rewards_page.dart'; // 🚀 استيراد صفحة الجوائز الجديدة
+import 'student_rewards_page.dart'; // 🚀 استيراد صفحة الجوائز
 
 class SummaryTab extends StatelessWidget {
   final Map<String, dynamic> studentData;
@@ -45,27 +45,41 @@ class SummaryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-      padding: const EdgeInsets.only(bottom: 120, top: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildDailyInspiration(),
-          _buildDigitalGlassID(studentData),
-          
-          // 🚀 محفظة النقاط التفاعلية للطلاب تحت الهوية الرقمية مباشرة مع الربط الفعلي
-          _buildStudentPointsWallet(context),
-          
-          _buildQuranProgressSection(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Text("📊 لوحة الأداء والإحصائيات الحية", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Cairo', color: isDarkMode ? Colors.white : primaryColor)),
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isClosed', isEqualTo: false)
+          .limit(1)
+          .get(),
+      builder: (context, cycleSnap) {
+        String? activeCycleId;
+        if (cycleSnap.hasData && cycleSnap.data!.docs.isNotEmpty) {
+          activeCycleId = cycleSnap.data!.docs.first.id;
+        }
+
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          padding: const EdgeInsets.only(bottom: 120, top: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildDailyInspiration(),
+              _buildDigitalGlassID(studentData, activeCycleId),
+              
+              // 🚀 محفظة النقاط التفاعلية للطلاب
+              _buildStudentPointsWallet(context, activeCycleId),
+              
+              _buildQuranProgressSection(activeCycleId),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Text("📊 لوحة الأداء والإحصائيات الحية", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Cairo', color: isDarkMode ? Colors.white : primaryColor)),
+              ),
+              _buildParentStatsDashboard(),
+              const SizedBox(height: 30),
+            ],
           ),
-          _buildParentStatsDashboard(),
-          const SizedBox(height: 30),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -138,7 +152,7 @@ class SummaryTab extends StatelessWidget {
     );
   }
 
-  Widget _buildDigitalGlassID(Map<String, dynamic> data) {
+  Widget _buildDigitalGlassID(Map<String, dynamic> data, String? activeCycleId) {
     String studentName = data['name'] ?? 'اسم الطالب';
     var exactSerial = data['serial']; 
     String serialNumStr = exactSerial?.toString() ?? '---';
@@ -211,11 +225,25 @@ class SummaryTab extends StatelessWidget {
                     const SizedBox(width: 16),
                     Expanded(
                       child: StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance.collection('students').where('serial', isEqualTo: exactSerial).limit(1).snapshots(),
+                        stream: FirebaseFirestore.instance
+                            .collection('students')
+                            .where('serial', isEqualTo: exactSerial)
+                            .snapshots(),
                         builder: (context, snapshot) {
                           String pulse = 'none';
                           if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                            pulse = (snapshot.data!.docs.first.data() as Map<String, dynamic>)['livePulse'] ?? 'none';
+                            var docs = snapshot.data!.docs;
+                            var doc = docs.first;
+                            if (activeCycleId != null) {
+                              for (var d in docs) {
+                                var map = d.data() as Map<String, dynamic>;
+                                if (map['cycleId'] == activeCycleId) {
+                                  doc = d;
+                                  break;
+                                }
+                              }
+                            }
+                            pulse = (doc.data() as Map<String, dynamic>)['livePulse'] ?? 'none';
                           }
 
                           Color dotColor = Colors.transparent;
@@ -292,16 +320,33 @@ class SummaryTab extends StatelessWidget {
     );
   }
 
-  // 🚀 محفظة النقاط مع العداد الحركي والربط الحقيقي بصفحة المتجر التفاعلي
-  Widget _buildStudentPointsWallet(BuildContext context) {
+  // 🚀 محفظة النقاط مع العداد الحركي والربط بحساب الدورة النشطة
+  Widget _buildStudentPointsWallet(BuildContext context, String? activeCycleId) {
     var exactSerial = studentData['serial'];
     
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('students').where('serial', isEqualTo: exactSerial).limit(1).snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('students')
+          .where('serial', isEqualTo: exactSerial)
+          .snapshots(),
       builder: (context, snapshot) {
         int currentPoints = 0;
+        DocumentSnapshot? targetDoc;
+
         if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-          currentPoints = (snapshot.data!.docs.first.data() as Map<String, dynamic>)['points'] ?? 0;
+          var docs = snapshot.data!.docs;
+          targetDoc = docs.first;
+
+          if (activeCycleId != null) {
+            for (var doc in docs) {
+              var data = doc.data() as Map<String, dynamic>;
+              if (data['cycleId'] == activeCycleId) {
+                targetDoc = doc;
+                break;
+              }
+            }
+          }
+          currentPoints = (targetDoc!.data() as Map<String, dynamic>)['points'] ?? 0;
         }
 
         return Container(
@@ -311,11 +356,10 @@ class SummaryTab extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(24),
               onTap: () {
-                if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                  // 🚀 الانتقال المباشر بدون تعليقات لصفحة المتجر وتمرير بيانات الطالب
+                if (targetDoc != null) {
                   Navigator.push(
                     context, 
-                    MaterialPageRoute(builder: (context) => StudentRewardsPage(studentDoc: snapshot.data!.docs.first))
+                    MaterialPageRoute(builder: (context) => StudentRewardsPage(studentDoc: targetDoc!))
                   );
                 }
               },
@@ -349,7 +393,6 @@ class SummaryTab extends StatelessWidget {
                       ],
                     ),
                     
-                    // 🔢 العداد الحركي الدوار للنقاط لايف
                     TweenAnimationBuilder<double>(
                       tween: Tween<double>(begin: 0, end: currentPoints.toDouble()),
                       duration: const Duration(milliseconds: 1500),
@@ -525,7 +568,7 @@ class SummaryTab extends StatelessWidget {
     );
   }
 
-  Widget _buildQuranProgressSection() {
+  Widget _buildQuranProgressSection(String? activeCycleId) {
     bool isCompleted = studentData['studentType'] == 'completed';
     double savedPages = 0.0;
 
@@ -534,7 +577,8 @@ class SummaryTab extends StatelessWidget {
       
       List<QueryDocumentSnapshot> sortedSessions = List.from(sessionDocs)..retainWhere((doc) {
         var data = doc.data() as Map;
-        return data['absent'] == false && data['isExam'] == false && data['didNotRecite'] != true;
+        bool activeOk = (activeCycleId == null || data['cycleId'] == activeCycleId);
+        return activeOk && data['absent'] == false && data['isExam'] == false && data['didNotRecite'] != true;
       });
       
       sortedSessions.sort((a, b) {
