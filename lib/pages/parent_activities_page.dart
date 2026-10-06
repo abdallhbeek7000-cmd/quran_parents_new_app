@@ -22,6 +22,57 @@ class ParentActivitiesPage extends StatefulWidget {
 class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
   final Color primaryColor = const Color(0xff425c75);
   final Color accentGold = const Color(0xffd4af37);
+  String _activeCycleId = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchActiveCycleId();
+  }
+
+  // 🎯 جلب ID الدورة الفعالة حالياً ومطابقتها مع حقل active: true في Firestore
+  Future<String> _fetchActiveCycleId() async {
+    try {
+      // 1. الفحص أولاً بحقل active == true
+      var activeSnapAlt = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('active', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (activeSnapAlt.docs.isNotEmpty) {
+        if (mounted) setState(() => _activeCycleId = activeSnapAlt.docs.first.id);
+        return activeSnapAlt.docs.first.id;
+      }
+
+      // 2. الفحص بحقل isActive == true
+      var activeSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isActive', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (activeSnap.docs.isNotEmpty) {
+        if (mounted) setState(() => _activeCycleId = activeSnap.docs.first.id);
+        return activeSnap.docs.first.id;
+      }
+
+      // 3. الفحص بحقل isCurrent == true
+      var currentSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isCurrent', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (currentSnap.docs.isNotEmpty) {
+        if (mounted) setState(() => _activeCycleId = currentSnap.docs.first.id);
+        return currentSnap.docs.first.id;
+      }
+    } catch (e) {
+      print("خطأ في جلب الدورة الفعالة للأنشطة: $e");
+    }
+    return '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,8 +127,17 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
                   );
                 }
 
+                // 🎯 تصفية الأنشطة حسب الدورة الفعالة وحسب الفئة المستهدفة للطالب
                 final filteredDocs = snapshot.data!.docs.where((doc) {
                   var data = doc.data() as Map<String, dynamic>;
+
+                  // فلترة الدورة الفعالة
+                  String docCycleId = data['cycleId']?.toString().trim() ?? '';
+                  if (_activeCycleId.isNotEmpty && docCycleId.isNotEmpty && docCycleId != _activeCycleId) {
+                    return false;
+                  }
+
+                  // فلترة الفئة المستهدفة
                   String targetType = data['targetType'] ?? 'all';
                   if (targetType == 'all') return true;
 
@@ -442,6 +502,8 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
     String studentName,
   ) async {
     try {
+      String cycleId = _activeCycleId.isNotEmpty ? _activeCycleId : await _fetchActiveCycleId();
+
       await FirebaseFirestore.instance
           .collection('activities')
           .doc(activityId)
@@ -452,6 +514,7 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
               'studentId': studentId,
               'studentName': studentName,
               'status': status,
+              'cycleId': cycleId,
               'updatedAt': FieldValue.serverTimestamp(),
             },
             SetOptions(merge: true),

@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../services/notification_service.dart'; // 🚀 استيراد خدمة الإشعارات الخاصة بالتطبيق
+import '../services/notification_service.dart';
 
 class StudentRewardsPage extends StatefulWidget {
   final DocumentSnapshot studentDoc;
@@ -20,6 +20,7 @@ class _StudentRewardsPageState extends State<StudentRewardsPage> with TickerProv
 
   late AnimationController _bgController;
   late Animation<double> _bgAnimation;
+  String _activeCycleId = '';
 
   @override
   void initState() {
@@ -28,6 +29,8 @@ class _StudentRewardsPageState extends State<StudentRewardsPage> with TickerProv
     
     _bgController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
     _bgAnimation = Tween<double>(begin: -10, end: 20).animate(CurvedAnimation(parent: _bgController, curve: Curves.easeInOutSine));
+
+    _fetchActiveCycle();
   }
 
   @override
@@ -37,20 +40,61 @@ class _StudentRewardsPageState extends State<StudentRewardsPage> with TickerProv
     super.dispose();
   }
 
-  // 🔮 🚀 المحرك السحري لإشعار السائل الزجاجي الذي ينزلق بفخامة من الأعلى بصفحة الطالب
+  // 🎯 جلب ID الدورة الفعالة حالياً مباشرة من السيرفر لمنع الكاش
+  Future<String> _fetchActiveCycle() async {
+    try {
+      var activeSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isActive', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (activeSnap.docs.isNotEmpty) {
+        if (mounted) setState(() => _activeCycleId = activeSnap.docs.first.id);
+        return activeSnap.docs.first.id;
+      }
+
+      var activeSnapAlt = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('active', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (activeSnapAlt.docs.isNotEmpty) {
+        if (mounted) setState(() => _activeCycleId = activeSnapAlt.docs.first.id);
+        return activeSnapAlt.docs.first.id;
+      }
+
+      var currentSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isCurrent', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (currentSnap.docs.isNotEmpty) {
+        if (mounted) setState(() => _activeCycleId = currentSnap.docs.first.id);
+        return currentSnap.docs.first.id;
+      }
+    } catch (e) {
+      print("خطأ في تحديد الدورة الفعالة: $e");
+    }
+    return '';
+  }
+
+  // 🔮 المحرك السحري لإشعار السائل الزجاجي من الأعلى
   void _showTopPremiumToast({required String message, required IconData icon, required Color statusColor, required bool isDark}) {
     final overlay = Overlay.of(context);
     late OverlayEntry overlayEntry;
 
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        top: MediaQuery.of(context).padding.top + 15, // النزول أسفل النوتش والكاميرا بالملي
+        top: MediaQuery.of(context).padding.top + 15,
         left: 20,
         right: 20,
         child: Material(
           color: Colors.transparent,
           child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: -100.0, end: 0.0), // انزلاق انسيابي من فوق
+            tween: Tween(begin: -100.0, end: 0.0),
             duration: const Duration(milliseconds: 500),
             curve: Curves.easeOutBack,
             builder: (context, value, child) {
@@ -63,11 +107,11 @@ class _StudentRewardsPageState extends State<StudentRewardsPage> with TickerProv
               );
             },
             child: Directionality(
-              textDirection: TextDirection.rtl, // دعم التوجيه العربي
+              textDirection: TextDirection.rtl,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15), // بلور زجاجي نقي خلف التنبيه
+                  filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                     decoration: BoxDecoration(
@@ -114,7 +158,7 @@ class _StudentRewardsPageState extends State<StudentRewardsPage> with TickerProv
     });
   }
 
-  // 🪙 دالة استبدال المكافأة مصلحة ومربوطة بالسالب والتنبيهات العلوية
+  // 🪙 دالة استبدال المكافأة المحدثة مع حفظ cycleId الفعال
   void _claimReward(BuildContext context, Map<String, dynamic> rewardData, String rewardId, int currentPoints, DocumentReference studentRef) async {
     int rewardCost = (rewardData['pointsRequired'] ?? 0).toInt(); 
     String rewardName = rewardData['name'] ?? 'جائزة مجهولة'; 
@@ -123,7 +167,6 @@ class _StudentRewardsPageState extends State<StudentRewardsPage> with TickerProv
     bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (currentPoints < rewardCost) {
-      // 🚀 إطلاق تنبيه علوي منزلق عند نقص النقاط
       _showTopPremiumToast(message: 'عذراً! رصيد نقاطك الحالي لا يكفي لشراء هذه الجائزة 🌟', icon: Icons.warning_amber_rounded, statusColor: Colors.orangeAccent, isDark: isDark);
       return;
     }
@@ -149,6 +192,8 @@ class _StudentRewardsPageState extends State<StudentRewardsPage> with TickerProv
     if (!confirm) return;
 
     try {
+      String cycleId = _activeCycleId.isNotEmpty ? _activeCycleId : await _fetchActiveCycle();
+
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         DocumentSnapshot freshStudentSnap = await transaction.get(studentRef);
         int freshPoints = (freshStudentSnap.data() as Map<String, dynamic>)['points'] ?? 0;
@@ -167,6 +212,7 @@ class _StudentRewardsPageState extends State<StudentRewardsPage> with TickerProv
           'rewardTitle': rewardName,
           'cost': rewardCost,
           'status': 'pending',
+          'cycleId': cycleId,
           'createdAt': FieldValue.serverTimestamp(),
         });
 
@@ -176,6 +222,7 @@ class _StudentRewardsPageState extends State<StudentRewardsPage> with TickerProv
           'studentId': widget.studentDoc.id,
           'pointsAdded': -rewardCost, 
           'reason': 'استبدال جائزة: $rewardName 🎁',
+          'cycleId': cycleId,
           'timestamp': FieldValue.serverTimestamp(),
         });
       });
@@ -192,7 +239,6 @@ class _StudentRewardsPageState extends State<StudentRewardsPage> with TickerProv
         });
       }
 
-      // 🚀 السحر هنا: تم التبديل إلى التنبيه الزجاجي الانزلاقي من الأعلى بنجاح عند نجاح العملية الكلية
       _showTopPremiumToast(message: '🎉 تم إرسال طلبك بنجاح! متبقي لديك ${currentPoints - rewardCost} نقطة.', icon: Icons.check_circle_rounded, statusColor: Colors.green.shade600, isDark: isDark);
     } catch (e) {
       _showTopPremiumToast(message: 'حدث خطأ أثناء المعالجة: $e', icon: Icons.error_outline_rounded, statusColor: Colors.redAccent, isDark: isDark);
@@ -467,7 +513,16 @@ class _StudentRewardsPageState extends State<StudentRewardsPage> with TickerProv
           );
         }
 
-        var historyDocs = List<QueryDocumentSnapshot>.from(snapshot.data!.docs);
+        // 🎯 فلترة التكليفات لتشمل فقط الدورة الفعالة
+        var historyDocs = snapshot.data!.docs.where((doc) {
+          var log = doc.data() as Map<String, dynamic>;
+          String docCycleId = log['cycleId']?.toString().trim() ?? '';
+          if (_activeCycleId.isNotEmpty && docCycleId.isNotEmpty) {
+            return docCycleId == _activeCycleId;
+          }
+          return true; // في حال عدم حفظ cycleId سابقاً
+        }).toList();
+
         historyDocs.sort((a, b) {
           var tA = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
           var tB = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
@@ -555,7 +610,7 @@ class _StudentRewardsPageState extends State<StudentRewardsPage> with TickerProv
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02), blurRadius: 10, offset: const Offset(0, 5))],
           ),
           child: child,
-         ),
+        ),
       ),
     );
   }

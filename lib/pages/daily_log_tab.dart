@@ -30,15 +30,25 @@ class DailyLogTab extends StatelessWidget {
     return DateTime(2000);
   }
 
-  // 🎯 جلب ID الدورة الفعالة حالياً بشكل ديناميكي بناءً على حقول Firestore الدقيقة
+  // 🎯 جلب ID الدورة الفعالة حالياً بشكل مباشر ومطابق لقاعدة البيانات (active: true)
   Future<String?> _getActiveCycleId() async {
     try {
-      // 1. الفحص بالحقل الأساسي الصحيح: active == true
-      var activeSnap = await FirebaseFirestore.instance
+      // 1. الفحص بالحقل الحقيقي في قاعدة البيانات لديك (active == true)
+      var activeSnapAlt = await FirebaseFirestore.instance
           .collection('cycles')
           .where('active', isEqualTo: true)
           .limit(1)
-          .get();
+          .get(const GetOptions(source: Source.server));
+
+      if (activeSnapAlt.docs.isNotEmpty) {
+        return activeSnapAlt.docs.first.id;
+      }
+
+      var activeSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isActive', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
 
       if (activeSnap.docs.isNotEmpty) {
         return activeSnap.docs.first.id;
@@ -49,7 +59,7 @@ class DailyLogTab extends StatelessWidget {
           .collection('cycles')
           .where('isCurrent', isEqualTo: true)
           .limit(1)
-          .get();
+          .get(const GetOptions(source: Source.server));
 
       if (currentSnap.docs.isNotEmpty) {
         return currentSnap.docs.first.id;
@@ -60,13 +70,13 @@ class DailyLogTab extends StatelessWidget {
           .collection('cycles')
           .where('status', isEqualTo: 'active')
           .limit(1)
-          .get();
+          .get(const GetOptions(source: Source.server));
 
       if (statusSnap.docs.isNotEmpty) {
         return statusSnap.docs.first.id;
       }
     } catch (e) {
-      print("خطأ في جلب الدورة الفعالة: $e");
+      print("خطأ في جلب الدورة الفعالة للسجل اليومي: $e");
     }
     return null;
   }
@@ -82,7 +92,7 @@ class DailyLogTab extends StatelessWidget {
 
         String? activeCycleId = cycleSnap.data;
 
-        // 🚀 تصفية الجلسات المطابقة لحقل cycleId الخاص بالدورة الفعالة فقط
+        // 🚀 تصفية الجلسات المطابقة لحقل cycleId الخاص بالدورة الفعالة حصراً
         List<QueryDocumentSnapshot> activeCycleDocs = sortedDocs.where((doc) {
           var data = doc.data() as Map<String, dynamic>;
           String docCycleId = data['cycleId']?.toString().trim() ?? '';
@@ -90,7 +100,7 @@ class DailyLogTab extends StatelessWidget {
           if (activeCycleId != null && activeCycleId.isNotEmpty) {
             return docCycleId == activeCycleId;
           }
-          return false;
+          return true; // الاحتياط في حال لم يُحدد cycleId
         }).toList();
 
         if (activeCycleDocs.isEmpty) {
@@ -256,7 +266,6 @@ class DailyLogTab extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        // 🎯 تم تعديل صياغة واستدعاء دالة اسم الجزء بنجاح
                         if (selectedJuz > 0)
                           _buildCustomBadge("نظام: جزء ${_getJuzName(selectedJuz)} 📖", Colors.white, accentGold),
 
@@ -299,7 +308,6 @@ class DailyLogTab extends StatelessWidget {
                     ],
                   ],
 
-                  // 🎯 1. مربعات التسميع (تظهر فقط إذا سمّع الطالب)
                   if (!isAbsent && !isExam && !didNotRecite) ...[
                     Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: isDarkMode ? Colors.white24 : const Color(0xfff1f5f9))),
                     
@@ -322,7 +330,6 @@ class DailyLogTab extends StatelessWidget {
                     ],
                   ],
 
-                  // 🎯 2. مربع الواجب القادم (يظهر حتى لو "حضر ولم يسمّع")
                   if (!isAbsent && !isExam) ...[
                     if (nHw.isNotEmpty || nRevHw.isNotEmpty || oRevHw.isNotEmpty || oldHw.isNotEmpty) ...[
                       if (didNotRecite) const SizedBox(height: 10),

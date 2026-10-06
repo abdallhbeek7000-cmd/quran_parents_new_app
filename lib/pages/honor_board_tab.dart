@@ -22,24 +22,55 @@ class HonorBoardTab extends StatelessWidget {
   final Color primaryColor = const Color(0xff425c75);
   final Color goldColor = const Color(0xffD4AF37);
 
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance
+  // 🎯 جلب ID الدورة الفعالة حالياً مباشرة من السيرفر لمنع الكاش
+  Future<String?> _fetchActiveCycleId() async {
+    try {
+      var activeSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isActive', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (activeSnap.docs.isNotEmpty) {
+        return activeSnap.docs.first.id;
+      }
+
+      var activeSnapAlt = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('active', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (activeSnapAlt.docs.isNotEmpty) {
+        return activeSnapAlt.docs.first.id;
+      }
+
+      var closedSnap = await FirebaseFirestore.instance
           .collection('cycles')
           .where('isClosed', isEqualTo: false)
           .limit(1)
-          .get(),
+          .get(const GetOptions(source: Source.server));
+
+      if (closedSnap.docs.isNotEmpty) {
+        return closedSnap.docs.first.id;
+      }
+    } catch (e) {
+      print("خطأ في جلب الدورة الفعالة للوحة الشرف: $e");
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: _fetchActiveCycleId(),
       builder: (context, cycleSnap) {
-        String? activeCycleId;
-        if (cycleSnap.hasData && cycleSnap.data!.docs.isNotEmpty) {
-          activeCycleId = cycleSnap.data!.docs.first.id;
-        }
+        String? activeCycleId = cycleSnap.data;
 
         // 🎯 فلترة الفائزين ليتم عرض المتميزين التابعين للدورة النشطة فقط
         List<Map<String, dynamic>> activeWinners = allWinners.where((winner) {
-          if (activeCycleId == null) return true;
-          String? winnerCycleId = winner['cycleId']?.toString();
+          if (activeCycleId == null || activeCycleId.isEmpty) return true;
+          String? winnerCycleId = winner['cycleId']?.toString().trim();
           if (winnerCycleId == null || winnerCycleId.isEmpty) return true;
           return winnerCycleId == activeCycleId;
         }).toList();

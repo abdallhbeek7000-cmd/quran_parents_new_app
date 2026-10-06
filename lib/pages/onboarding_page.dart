@@ -40,6 +40,44 @@ class _OnboardingPageState extends State<OnboardingPage> {
     },
   ];
 
+  // 🎯 جلب ID الدورة الفعالة مباشرة من السيرفر لمنع الكاش
+  Future<String> _fetchActiveCycleId() async {
+    try {
+      var activeSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isActive', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (activeSnap.docs.isNotEmpty) {
+        return activeSnap.docs.first.id;
+      }
+
+      var activeSnapAlt = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('active', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (activeSnapAlt.docs.isNotEmpty) {
+        return activeSnapAlt.docs.first.id;
+      }
+
+      var closedSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isClosed', isEqualTo: false)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (closedSnap.docs.isNotEmpty) {
+        return closedSnap.docs.first.id;
+      }
+    } catch (e) {
+      print("خطأ في جلب الدورة الفعالة: $e");
+    }
+    return '';
+  }
+
   void _completeOnboarding() async {
     // 🎯 حفظ أن المستخدم أكمل الجولة ليتم تخطيها مستقبلاً
     final prefs = await SharedPreferences.getInstance();
@@ -48,15 +86,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
     DocumentSnapshot targetStudent = widget.student;
 
     try {
-      // 🎯 جلب الدورة النشطة والتأكد من فتح ملف الطالب التابع للدورة الفعالة
-      final cycleSnap = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('isClosed', isEqualTo: false)
-          .limit(1)
-          .get();
+      // 🎯 جلب الدورة النشطة والتأكد من فتح ملف الطالب التابع للدورة الفعالة حصراً
+      String activeCycleId = await _fetchActiveCycleId();
 
-      if (cycleSnap.docs.isNotEmpty) {
-        String activeCycleId = cycleSnap.docs.first.id;
+      if (activeCycleId.isNotEmpty) {
         var currentData = widget.student.data() as Map<String, dynamic>?;
 
         if (currentData != null) {
@@ -64,11 +97,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
           var studentQuery = await FirebaseFirestore.instance
               .collection('students')
               .where('serial', isEqualTo: serial)
-              .get();
+              .get(const GetOptions(source: Source.server));
 
           for (var doc in studentQuery.docs) {
             var data = doc.data();
-            if (data['cycleId'] == activeCycleId) {
+            String docCycleId = data['cycleId']?.toString().trim() ?? '';
+            if (docCycleId == activeCycleId) {
               targetStudent = doc;
               break;
             }

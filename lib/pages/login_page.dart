@@ -42,55 +42,84 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     super.dispose();
   }
 
-  // 🎯 جلب حساب الطالب التابع للدورة الفعالة حالياً حصراً (مقارنة cycleId بالدورة الفعالة)
-  Future<DocumentSnapshot> _getNewCycleStudentDoc(List<DocumentSnapshot> docs) async {
-    String activeCycleId = '';
-
+  // 🎯 جلب ID الدورة الفعالة حالياً مطابقاً تماماً لحقول قاعدة البيانات عندك (active: true / isCurrent: true)
+  Future<String> _getActiveCycleId() async {
     try {
-      // 1. جلب ID الدورة الفعالة حالياً من مجموعة cycles (active == true)
+      // 1. البحث بحقل active == true (الموجود في صورة Firestore لديك)
       var activeSnap = await FirebaseFirestore.instance
           .collection('cycles')
           .where('active', isEqualTo: true)
           .limit(1)
-          .get();
+          .get(const GetOptions(source: Source.server));
 
       if (activeSnap.docs.isNotEmpty) {
-        activeCycleId = activeSnap.docs.first.id;
-      } else {
-        // فحص احتياطي بحقل isCurrent
-        var currentSnap = await FirebaseFirestore.instance
-            .collection('cycles')
-            .where('isCurrent', isEqualTo: true)
-            .limit(1)
-            .get();
-        if (currentSnap.docs.isNotEmpty) {
-          activeCycleId = currentSnap.docs.first.id;
-        }
+        return activeSnap.docs.first.id;
+      }
+
+      // 2. البحث بحقل isCurrent == true
+      var currentSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isCurrent', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (currentSnap.docs.isNotEmpty) {
+        return currentSnap.docs.first.id;
+      }
+
+      // 3. البحث بحقل status == 'active'
+      var statusSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('status', isEqualTo: 'active')
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (statusSnap.docs.isNotEmpty) {
+        return statusSnap.docs.first.id;
+      }
+
+      // 4. احتياط: جلب أحدث دورة تم إنشاؤها
+      var latestSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (latestSnap.docs.isNotEmpty) {
+        return latestSnap.docs.first.id;
       }
     } catch (e) {
       print("خطأ في تحديد الدورة الفعالة: $e");
     }
+    return '';
+  }
 
-    // 2. مطابقة مستند الطالب المعني مع ID الدورة الفعالة
+  // 🎯 دالة جلب مستند الطالب بالرقم التسلسلي والدورة الفعالة حصراً
+  Future<DocumentSnapshot?> _getStudentForActiveCycle(String serialInput) async {
+    String activeCycleId = await _getActiveCycleId();
+    final int? serialNum = int.tryParse(serialInput);
+
+    Query query = FirebaseFirestore.instance
+        .collection('students')
+        .where('serial', whereIn: [serialNum ?? serialInput, serialInput]);
+
+    var snap = await query.get(const GetOptions(source: Source.server));
+
+    if (snap.docs.isEmpty) return null;
+
+    // تصفية المستندات لإعادة مستند الدورة الفعالة حصراً
     if (activeCycleId.isNotEmpty) {
-      for (var doc in docs) {
+      for (var doc in snap.docs) {
         var data = doc.data() as Map<String, dynamic>;
         String docCycleId = data['cycleId']?.toString().trim() ?? '';
         if (docCycleId == activeCycleId) {
-          return doc; // 🎯 إرجاع حساب الدورة الجديدة الفعالة
+          return doc; // إرجاع حساب الدورة الفعالة الجديدة حصراً
         }
       }
     }
 
-    // 3. خيار احتياطي في حال عدم التطابق مع activeCycleId
-    for (var doc in docs) {
-      var data = doc.data() as Map<String, dynamic>;
-      if (data.containsKey('cycleId') && data['cycleId']?.toString().trim().isNotEmpty == true) {
-        return doc;
-      }
-    }
-
-    return docs.first;
+    // في حال عدم التطابق يُرجع أحدث مستند مضاف
+    return snap.docs.last;
   }
 
   void _checkSavedLogin() async {
@@ -102,27 +131,20 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       setState(() => _isLoading = true);
 
       try {
-        final int? serialNum = int.tryParse(savedSerial);
-        var query = await FirebaseFirestore.instance
-            .collection('students')
-            .where('serial', whereIn: [serialNum ?? savedSerial, savedSerial])
-            .get();
+        DocumentSnapshot? targetStudent = await _getStudentForActiveCycle(savedSerial);
 
-        if (query.docs.isNotEmpty) {
-          // 🎯 جلب حساب الدورة الفعالة بدقة
-          DocumentSnapshot targetStudent = await _getNewCycleStudentDoc(query.docs);
-
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => hasSeenOnboarding
-                    ? ParentHomePage(student: targetStudent)
-                    : OnboardingPage(student: targetStudent), 
-              ),
-            );
-            return;
-          }
+        if (targetStudent != null && mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => hasSeenOnboarding
+                  ? ParentHomePage(student: targetStudent)
+                  : OnboardingPage(student: targetStudent), 
+            ),
+          );
+          return;
+        } else {
+          await prefs.remove('saved_student_serial');
         }
       } catch (e) {
         print("Error during auto login sync: $e");
@@ -149,13 +171,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     setState(() => _isLoading = true);
 
     try {
-      final int? serialNum = int.tryParse(serialInput);
-      var query = await FirebaseFirestore.instance
-          .collection('students')
-          .where('serial', whereIn: [serialNum ?? serialInput, serialInput])
-          .get();
+      DocumentSnapshot? studentDoc = await _getStudentForActiveCycle(serialInput);
 
-      if (query.docs.isEmpty) {
+      if (studentDoc == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -167,9 +185,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         setState(() => _isLoading = false);
         return;
       }
-
-      // 🎯 اختيار الحساب المربوط بالدورة الفعالة
-      DocumentSnapshot studentDoc = await _getNewCycleStudentDoc(query.docs);
 
       final Map<String, dynamic> studentData = studentDoc.data() as Map<String, dynamic>;
       final String dbPhone = (studentData['phone'] ?? '').toString().trim().replaceAll(' ', '');

@@ -1,4 +1,6 @@
-import 'dart:ui';
+import 'dart:io';
+import 'dart:ui'; 
+import 'dart:math' as math; 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,6 +43,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
   bool _isHonorLoading = true;
 
   List<DocumentSnapshot> siblings = [];
+  String _activeCycleId = '';
 
   late AnimationController _bgController;
   late Animation<double> _bgAnimation;
@@ -55,7 +58,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     _bgController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
     _bgAnimation = Tween<double>(begin: -10, end: 20).animate(CurvedAnimation(parent: _bgController, curve: Curves.easeInOutSine));
 
-    _fetchActiveSiblings();
+    _initActiveCycle();
     _loadHonorBoardAndImages();
     _saveDeviceToken(); 
     
@@ -70,57 +73,40 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     super.dispose();
   }
 
-  // 🎯 دالة جلب الدورة الفعالة تلقائياً ومباشرة من مجموعة cycles
-  Future<String> _getActiveCycleId(Map<String, dynamic> studentData) async {
+  // 🎯 جلب ID الدورة الفعالة
+  Future<void> _initActiveCycle() async {
     try {
-      // 1. جلب الدورة الفعالة من مجموعة cycles بناءً على active: true
-      var activeSnap = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('active', isEqualTo: true)
-          .limit(1)
-          .get();
+      var cyclesSnap = await FirebaseFirestore.instance.collection('cycles').get();
 
-      if (activeSnap.docs.isNotEmpty) {
-        return activeSnap.docs.first.id;
+      for (var doc in cyclesSnap.docs) {
+        var data = doc.data();
+        bool isActive = data['active'] == true || 
+                        data['isActive'] == true || 
+                        data['isCurrent'] == true || 
+                        data['status'] == 'active';
+
+        if (isActive) {
+          if (mounted) {
+            setState(() {
+              _activeCycleId = doc.id;
+            });
+          }
+          break;
+        }
       }
-
-      // 2. فحص بحقل isCurrent == true
-      var currentSnap = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('isCurrent', isEqualTo: true)
-          .limit(1)
-          .get();
-
-      if (currentSnap.docs.isNotEmpty) {
-        return currentSnap.docs.first.id;
-      }
-
-      // 3. فحص بحقل status == 'active'
-      var statusSnap = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('status', isEqualTo: 'active')
-          .limit(1)
-          .get();
-
-      if (statusSnap.docs.isNotEmpty) {
-        return statusSnap.docs.first.id;
-      }
+      _fetchActiveSiblings();
     } catch (e) {
-      print("خطأ في جلب الدورة الفعالة تلقائياً: $e");
+      print("خطأ جلب الدورة الفعالة: $e");
     }
-
-    // 4. خيار احتياطي أخيرة: cycleId المربوط بالطالب
-    return studentData['cycleId']?.toString().trim() ?? '';
   }
 
-  // 🎯 جلب الأبناء المسجلين في نفس الدورة الحالية فقط
   void _fetchActiveSiblings() async {
     try {
       final currentData = widget.student.data() as Map<String, dynamic>?;
       if (currentData == null) return;
 
       final String phone = currentData['phone']?.toString().trim() ?? '';
-      final String activeCycleId = await _getActiveCycleId(currentData);
+      final String currentSerial = currentData['serial']?.toString().trim() ?? '';
 
       if (phone.isNotEmpty) {
         final querySnapshot = await FirebaseFirestore.instance
@@ -131,22 +117,15 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
         if (mounted) {
           setState(() {
             siblings = querySnapshot.docs.where((doc) {
-              if (doc.id == widget.student.id) return false;
-
               var data = doc.data() as Map<String, dynamic>;
-              String docCycleId = data['cycleId']?.toString().trim() ?? '';
-
-              if (activeCycleId.isNotEmpty) {
-                return docCycleId == activeCycleId;
-              } else {
-                return docCycleId.isNotEmpty;
-              }
+              String docSerial = data['serial']?.toString().trim() ?? '';
+              return docSerial != currentSerial;
             }).toList();
           });
         }
       }
     } catch (e) {
-      print("Error fetching active siblings: $e");
+      print("Error fetching siblings: $e");
     }
   }
 
@@ -211,7 +190,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     }
   }
 
-  // 🛡️ نافذة طلب الغياب المحدثة مع جلب cycleId تلقائياً
   void _showLeaveRequestDialog(BuildContext context, bool isDarkMode, String studentId, String studentName, String supervisorId, Map<String, dynamic> studentData) {
     DateTime selectedDate = DateTime.now();
     final List<String> predefinedReasons = ["مرض", "سفر", "دراسة", "حالة وفاة", "عمل", "زيارة", "لم يحضر الطالب"];
@@ -314,8 +292,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                                   return;
                                 }
 
-                                String activeCycleId = await _getActiveCycleId(studentData);
-
                                 final DateTime now = DateTime.now();
                                 final String formattedHour = now.hour > 12 ? (now.hour - 12).toString().padLeft(2, '0') : (now.hour == 0 ? "12" : now.hour.toString().padLeft(2, '0'));
                                 final String formattedMinute = now.minute.toString().padLeft(2, '0');
@@ -333,7 +309,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                                   'date': targetDateStr,
                                   'requestTime': sendTimeStr,
                                   'status': 'pending', 
-                                  'cycleId': activeCycleId,
+                                  'cycleId': _activeCycleId,
                                   'timestamp': FieldValue.serverTimestamp(),
                                 });
 
@@ -386,17 +362,73 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     );
   }
 
+  DateTime _parseDateTime(dynamic val) {
+    if (val == null) return DateTime.fromMillisecondsSinceEpoch(0);
+    if (val is Timestamp) return val.toDate();
+    if (val is String) {
+      return DateTime.tryParse(val) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final String studentId = widget.student.id;
     final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    final initialData = widget.student.data() as Map<String, dynamic>? ?? {};
+    final dynamic rawSerial = initialData['serial'];
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('students').doc(studentId).snapshots(),
-      builder: (context, studentSnapshot) {
-        final Map<String, dynamic> data = studentSnapshot.hasData && studentSnapshot.data!.data() != null
-            ? studentSnapshot.data!.data() as Map<String, dynamic>
-            : widget.student.data() as Map<String, dynamic>;
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('students').snapshots(),
+      builder: (context, studentQuerySnapshot) {
+        if (studentQuerySnapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            backgroundColor: isDarkMode ? const Color(0xff121212) : const Color(0xfff1f5f9),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        DocumentSnapshot activeStudentDoc = widget.student;
+
+        if (studentQuerySnapshot.hasData && studentQuerySnapshot.data!.docs.isNotEmpty) {
+          var allDocs = studentQuerySnapshot.data!.docs;
+
+          var matchedDocs = allDocs.where((doc) {
+            var d = doc.data() as Map<String, dynamic>;
+            var s = d['serial']?.toString().trim();
+            return s == rawSerial?.toString().trim();
+          }).toList();
+
+          if (matchedDocs.isNotEmpty) {
+            DocumentSnapshot? foundByCycle;
+
+            if (_activeCycleId.isNotEmpty) {
+              for (var doc in matchedDocs) {
+                var d = doc.data() as Map<String, dynamic>;
+                String docCycleId = d['cycleId']?.toString().trim() ?? '';
+                if (docCycleId == _activeCycleId.trim()) {
+                  foundByCycle = doc;
+                  break;
+                }
+              }
+            }
+
+            if (foundByCycle != null) {
+              activeStudentDoc = foundByCycle;
+            } else {
+              matchedDocs.sort((a, b) {
+                var dataA = a.data() as Map<String, dynamic>;
+                var dataB = b.data() as Map<String, dynamic>;
+                DateTime dtA = _parseDateTime(dataA['createdAt'] ?? dataA['timestamp']);
+                DateTime dtB = _parseDateTime(dataB['createdAt'] ?? dataB['timestamp']);
+                return dtB.compareTo(dtA);
+              });
+              activeStudentDoc = matchedDocs.first;
+            }
+          }
+        }
+
+        final String studentId = activeStudentDoc.id;
+        final Map<String, dynamic> data = activeStudentDoc.data() as Map<String, dynamic>? ?? initialData;
 
         final String studentName = data['name'] ?? 'الطالب';
         final String serialStr = data['serial']?.toString() ?? '';
@@ -465,7 +497,9 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
               SafeArea(
                 bottom: false,
                 child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance.collection('sessions').where('studentId', isEqualTo: studentId).snapshots(),
+                  stream: FirebaseFirestore.instance
+                      .collection('sessions')
+                      .snapshots(),
                   builder: (context, sessionSnapshot) {
                     int totalSessions = 0;
                     int absentCount = 0;
@@ -474,8 +508,24 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                     int badCount = 0;
                     List<QueryDocumentSnapshot> sortedDocs = [];
 
-                    if (sessionSnapshot.hasData) {
-                      var docs = sessionSnapshot.data!.docs;
+                    if (sessionSnapshot.hasData && sessionSnapshot.data!.docs.isNotEmpty) {
+                      var allSessions = sessionSnapshot.data!.docs;
+
+                      var docs = allSessions.where((doc) {
+                        String docId = doc.id;
+                        var sData = doc.data() as Map<String, dynamic>;
+                        String cycleIdInSession = sData['cycleId']?.toString().trim() ?? '';
+                        String studentIdInSession = sData['studentId']?.toString().trim() ?? '';
+
+                        bool matchesStudent = docId.startsWith('${studentId}_') || 
+                                             docId.startsWith(studentId) || 
+                                             studentIdInSession == studentId;
+                        
+                        bool matchesCycle = _activeCycleId.isEmpty || cycleIdInSession == _activeCycleId.trim();
+
+                        return matchesStudent && matchesCycle;
+                      }).toList();
+
                       totalSessions = docs.length;
                       for (var doc in docs) {
                         var sData = doc.data() as Map<String, dynamic>;
@@ -498,14 +548,45 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
 
                     int presentCount = totalSessions - absentCount;
 
+                    // 🎯 قراءة إجمالي الحفظ للختمة من أحدث جلسة
+                    Map<String, dynamic>? latestSessionData;
+                    if (sortedDocs.isNotEmpty) {
+                      latestSessionData = sortedDocs.first.data() as Map<String, dynamic>?;
+                    }
+
+                    int totalMemorizedPages = 0;
+                    if (latestSessionData != null) {
+                      totalMemorizedPages = int.tryParse(latestSessionData['totalMemorized']?.toString() ?? '') ??
+                                            int.tryParse(latestSessionData['totalMemorizationPages']?.toString() ?? '') ??
+                                            int.tryParse(latestSessionData['totalPages']?.toString() ?? '') ??
+                                            int.tryParse(latestSessionData['end_page']?.toString() ?? '') ?? 0;
+                    }
+
+                    if (totalMemorizedPages == 0) {
+                      totalMemorizedPages = int.tryParse(data['end_page']?.toString() ?? '') ??
+                                            int.tryParse(data['lastPage']?.toString() ?? '') ?? 0;
+                    }
+
                     switch (_currentTabIndex) {
                       case 0: 
                         return RefreshIndicator(
                           onRefresh: () async => setState(() {}),
-                          child: SummaryTab(studentData: data, sessionSnapshot: sessionSnapshot, total: totalSessions, present: presentCount, absent: absentCount, excellent: excellentCount, good: goodCount, bad: badCount, isDarkMode: isDarkMode),
+                          child: SummaryTab(
+                            studentData: {
+                              ...data,
+                              'customLastPage': totalMemorizedPages, // يمرر قيمة إجمالي الحفظ للختمة بدقة
+                            }, 
+                            sessionSnapshot: sessionSnapshot, 
+                            total: totalSessions, 
+                            present: presentCount, 
+                            absent: absentCount, 
+                            excellent: excellentCount, 
+                            good: goodCount, 
+                            bad: badCount, 
+                            isDarkMode: isDarkMode
+                          ),
                         );
                       case 1: 
-                        if (sessionSnapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
                         return DailyLogTab(sortedDocs: sortedDocs, isCompletedStudent: isCompletedStudent, isDarkMode: isDarkMode);
                       case 2: 
                         return ParentActivitiesPage(studentId: studentId, studentName: studentName);
@@ -523,7 +604,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
             ],
           ),
         );
-      }
+      },
     );
   }
 

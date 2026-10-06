@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'student_rewards_page.dart'; // 🚀 استيراد صفحة الجوائز
+import 'student_rewards_page.dart';
 
 class SummaryTab extends StatelessWidget {
   final Map<String, dynamic> studentData;
@@ -43,19 +43,49 @@ class SummaryTab extends StatelessWidget {
     return DateTime(2000);
   }
 
+  Future<String?> _fetchActiveCycleId() async {
+    try {
+      var activeSnapAlt = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('active', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (activeSnapAlt.docs.isNotEmpty) {
+        return activeSnapAlt.docs.first.id;
+      }
+
+      var activeSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isActive', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (activeSnap.docs.isNotEmpty) {
+        return activeSnap.docs.first.id;
+      }
+
+      var currentSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isCurrent', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (currentSnap.docs.isNotEmpty) {
+        return currentSnap.docs.first.id;
+      }
+    } catch (e) {
+      print("خطأ في جلب الدورة الفعالة للملخص: $e");
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance
-          .collection('cycles')
-          .where('isClosed', isEqualTo: false)
-          .limit(1)
-          .get(),
+    return FutureBuilder<String?>(
+      future: _fetchActiveCycleId(),
       builder: (context, cycleSnap) {
-        String? activeCycleId;
-        if (cycleSnap.hasData && cycleSnap.data!.docs.isNotEmpty) {
-          activeCycleId = cycleSnap.data!.docs.first.id;
-        }
+        String? activeCycleId = cycleSnap.data;
 
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
@@ -65,10 +95,7 @@ class SummaryTab extends StatelessWidget {
             children: [
               _buildDailyInspiration(),
               _buildDigitalGlassID(studentData, activeCycleId),
-              
-              // 🚀 محفظة النقاط التفاعلية للطلاب
               _buildStudentPointsWallet(context, activeCycleId),
-              
               _buildQuranProgressSection(activeCycleId),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -237,7 +264,7 @@ class SummaryTab extends StatelessWidget {
                             if (activeCycleId != null) {
                               for (var d in docs) {
                                 var map = d.data() as Map<String, dynamic>;
-                                if (map['cycleId'] == activeCycleId) {
+                                if (map['cycleId']?.toString().trim() == activeCycleId) {
                                   doc = d;
                                   break;
                                 }
@@ -320,7 +347,6 @@ class SummaryTab extends StatelessWidget {
     );
   }
 
-  // 🚀 محفظة النقاط مع العداد الحركي والربط بحساب الدورة النشطة
   Widget _buildStudentPointsWallet(BuildContext context, String? activeCycleId) {
     var exactSerial = studentData['serial'];
     
@@ -340,7 +366,7 @@ class SummaryTab extends StatelessWidget {
           if (activeCycleId != null) {
             for (var doc in docs) {
               var data = doc.data() as Map<String, dynamic>;
-              if (data['cycleId'] == activeCycleId) {
+              if (data['cycleId']?.toString().trim() == activeCycleId) {
                 targetDoc = doc;
                 break;
               }
@@ -568,16 +594,26 @@ class SummaryTab extends StatelessWidget {
     );
   }
 
+  // 🚀 دالة حساب وقراءة التقدم الشاملة والمعدلة
   Widget _buildQuranProgressSection(String? activeCycleId) {
     bool isCompleted = studentData['studentType'] == 'completed';
     double savedPages = 0.0;
 
-    if (sessionSnapshot.hasData && sessionSnapshot.data!.docs.isNotEmpty) {
+    // 🎯 1. فحص customLastPage أولاً إذا تم تمريره من ParentHomePage
+    if (studentData.containsKey('customLastPage') && studentData['customLastPage'] != null) {
+      double customVal = double.tryParse(studentData['customLastPage'].toString()) ?? 0.0;
+      if (customVal > 0) {
+        savedPages = customVal;
+      }
+    }
+
+    // 🎯 2. إذا لم تجد، استخراج الرقم المحدث من أحدث جلسات الطالب مباشرة عبر memorizedPages
+    if (savedPages == 0 && sessionSnapshot.hasData && sessionSnapshot.data!.docs.isNotEmpty) {
       var sessionDocs = sessionSnapshot.data!.docs;
       
       List<QueryDocumentSnapshot> sortedSessions = List.from(sessionDocs)..retainWhere((doc) {
         var data = doc.data() as Map;
-        bool activeOk = (activeCycleId == null || data['cycleId'] == activeCycleId);
+        bool activeOk = (activeCycleId == null || data['cycleId']?.toString().trim() == activeCycleId);
         return activeOk && data['absent'] == false && data['isExam'] == false && data['didNotRecite'] != true;
       });
       
@@ -600,9 +636,24 @@ class SummaryTab extends StatelessWidget {
         return dateComparison;
       });
 
-      if (isCompleted) {
-        for (var doc in sortedSessions) {
-          var data = doc.data() as Map;
+      for (var doc in sortedSessions) {
+        var data = doc.data() as Map;
+
+        // 🎯 فحص memorizedPages وحالات التسمية المختلفة بدقة
+        double? extractedVal = double.tryParse(data['memorizedPages']?.toString() ?? '') ??
+                              double.tryParse(data['totalMemorizedPages']?.toString() ?? '') ??
+                              double.tryParse(data['total_memorized_pages']?.toString() ?? '') ??
+                              double.tryParse(data['totalMemorized']?.toString() ?? '') ??
+                              double.tryParse(data['totalMemorizationPages']?.toString() ?? '') ??
+                              double.tryParse(data['totalPages']?.toString() ?? '') ??
+                              double.tryParse(data['end_page']?.toString() ?? '');
+
+        if (extractedVal != null && extractedVal > 0) {
+          savedPages = extractedVal;
+          break;
+        }
+
+        if (isCompleted) {
           String fRev = data['farReview']?.toString() ?? data['review']?.toString() ?? '';
           if (fRev.isNotEmpty) {
             RegExp exp = RegExp(r'\d+');
@@ -620,18 +671,15 @@ class SummaryTab extends StatelessWidget {
             }
           }
         }
-      } else {
-        for (var doc in sortedSessions) {
-          var data = doc.data() as Map;
-          if (data.containsKey('total_memorized_pages') && data['total_memorized_pages'] != null) {
-            double val = double.tryParse(data['total_memorized_pages'].toString()) ?? 0.0;
-            if (val > 0) {
-              savedPages = val;
-              break;
-            }
-          }
-        }
       }
+    }
+
+    // 🎯 3. الاحتياط المباشر من مستند الطالب
+    if (savedPages == 0) {
+      savedPages = double.tryParse(studentData['memorizedPages']?.toString() ?? '') ??
+                   double.tryParse(studentData['end_page']?.toString() ?? '') ??
+                   double.tryParse(studentData['lastPage']?.toString() ?? '') ??
+                   double.tryParse(studentData['pagesCount']?.toString() ?? '') ?? 0.0;
     }
 
     double totalQuranPages = 604.0;
