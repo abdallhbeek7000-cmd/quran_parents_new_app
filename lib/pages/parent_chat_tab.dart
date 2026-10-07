@@ -44,7 +44,7 @@ class _ParentChatTabState extends State<ParentChatTab> {
     if (widget.supervisorId.isNotEmpty) {
       await FirebaseFirestore.instance.collection('chats').doc(chatId).update({
         'unreadByParent': 0,
-      }).catchError((e) => print("لم يتم العثور على محادثة سابقة لتصفير العداد."));
+      }).catchError((e) => debugPrint("لم يتم العثور على محادثة سابقة لتصفير العداد."));
     }
   }
 
@@ -170,6 +170,31 @@ class _ParentChatTabState extends State<ParentChatTab> {
     );
   }
 
+  // 🔍 دالة فحص وتحديد رابط الصورة المتاح في بيانات المشرف
+  String _extractImageUrl(Map<String, dynamic>? data) {
+    if (data == null) return '';
+    List<String> possibleKeys = [
+      'imageUrl',
+      'photoUrl',
+      'image',
+      'photo',
+      'avatarUrl',
+      'profileImage',
+      'userImage',
+      'avatar'
+    ];
+
+    for (var key in possibleKeys) {
+      if (data.containsKey(key) && data[key] != null) {
+        String val = data[key].toString().trim();
+        if (val.isNotEmpty && (val.startsWith('http://') || val.startsWith('https://'))) {
+          return val;
+        }
+      }
+    }
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.supervisorId.isEmpty) {
@@ -197,14 +222,14 @@ class _ParentChatTabState extends State<ParentChatTab> {
 
     return Column(
       children: [
-        // 🌟 1. ترويسة معلومات المشرف المصممة مع الصورة الشخصية (بدون شارة متصل)
-        FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance.collection('users').doc(widget.supervisorId).get(),
+        // 🌟 1. ترويسة معلومات المشرف المصممة مع جلب الصورة المباشرة من Firestore
+        StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance.collection('users').doc(widget.supervisorId).snapshots(),
           builder: (context, supervisorSnap) {
             String imageUrl = '';
             if (supervisorSnap.hasData && supervisorSnap.data!.exists) {
-              var supData = supervisorSnap.data!.data() as Map<String, dynamic>;
-              imageUrl = supData['imageUrl'] ?? supData['photoUrl'] ?? supData['image'] ?? '';
+              var supData = supervisorSnap.data!.data() as Map<String, dynamic>?;
+              imageUrl = _extractImageUrl(supData);
             }
 
             return Container(
@@ -240,8 +265,8 @@ class _ParentChatTabState extends State<ParentChatTab> {
                       children: [
                         // 📸 عرض صورة المشرف الشخصية مع لمسة زجاجية وإطار ذهبي
                         Container(
-                          width: 46,
-                          height: 46,
+                          width: 48,
+                          height: 48,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(color: goldColor, width: 2),
@@ -254,8 +279,8 @@ class _ParentChatTabState extends State<ParentChatTab> {
                             ],
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(23),
-                            child: imageUrl.isNotEmpty && imageUrl.startsWith('http')
+                            borderRadius: BorderRadius.circular(24),
+                            child: imageUrl.isNotEmpty
                                 ? CachedNetworkImage(
                                     imageUrl: imageUrl,
                                     fit: BoxFit.cover,
