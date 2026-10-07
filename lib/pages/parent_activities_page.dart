@@ -30,46 +30,27 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
     _fetchActiveCycleId();
   }
 
-  // 🎯 جلب ID الدورة الفعالة حالياً ومطابقتها مع حقل active: true في Firestore
+  // 🎯 جلب ID الدورة الفعالة حالياً ومطابقتها مع الحقول النشطة من الكاش لتوفير الكوتا 100%
   Future<String> _fetchActiveCycleId() async {
     try {
-      // 1. الفحص أولاً بحقل active == true
-      var activeSnapAlt = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('active', isEqualTo: true)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
+      var cyclesSnap = await FirebaseFirestore.instance.collection('cycles').get();
 
-      if (activeSnapAlt.docs.isNotEmpty) {
-        if (mounted) setState(() => _activeCycleId = activeSnapAlt.docs.first.id);
-        return activeSnapAlt.docs.first.id;
-      }
-
-      // 2. الفحص بحقل isActive == true
-      var activeSnap = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('isActive', isEqualTo: true)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
-
-      if (activeSnap.docs.isNotEmpty) {
-        if (mounted) setState(() => _activeCycleId = activeSnap.docs.first.id);
-        return activeSnap.docs.first.id;
-      }
-
-      // 3. الفحص بحقل isCurrent == true
-      var currentSnap = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('isCurrent', isEqualTo: true)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
-
-      if (currentSnap.docs.isNotEmpty) {
-        if (mounted) setState(() => _activeCycleId = currentSnap.docs.first.id);
-        return currentSnap.docs.first.id;
+      if (cyclesSnap.docs.isNotEmpty) {
+        for (var doc in cyclesSnap.docs) {
+          var data = doc.data();
+          bool isActive = data['active'] == true || 
+                          data['isActive'] == true || 
+                          data['isCurrent'] == true || 
+                          data['status'] == 'active' || 
+                          data['isClosed'] == false;
+          if (isActive) {
+            if (mounted) setState(() => _activeCycleId = doc.id);
+            return doc.id;
+          }
+        }
       }
     } catch (e) {
-      print("خطأ في جلب الدورة الفعالة للأنشطة: $e");
+      debugPrint("خطأ في جلب الدورة الفعالة للأنشطة: $e");
     }
     return '';
   }
@@ -401,7 +382,8 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
     required Color color,
     required bool isDark,
   }) {
-    late final OverlayEntry overlayEntry = OverlayEntry(
+    late final OverlayEntry overlayEntry;
+    overlayEntry = OverlayEntry(
       builder: (_) {
         return Positioned(
           top: MediaQuery.of(context).padding.top + 10,
@@ -540,10 +522,10 @@ class _ParentActivitiesPageState extends State<ParentActivitiesPage> {
             body: notifyBody,
             type: "activity_response_update",
             context: context,
-          ).catchError((e) => print("فشل إرسال إشعار المدير: $e"));
+          ).catchError((e) => debugPrint("فشل إرسال إشعار المدير: $e"));
         }
       } catch (e) {
-        print("خطأ أثناء استعلام المدراء للإشعار: $e");
+        debugPrint("خطأ أثناء استعلام المدراء للإشعار: $e");
       }
 
       if (!context.mounted) return;

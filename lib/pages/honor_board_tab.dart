@@ -22,40 +22,26 @@ class HonorBoardTab extends StatelessWidget {
   final Color primaryColor = const Color(0xff425c75);
   final Color goldColor = const Color(0xffD4AF37);
 
-  // 🎯 جلب ID الدورة الفعالة حالياً مباشرة
+  // 🎯 جلب ID الدورة الفعالة حالياً مباشرة اعتماداً على الكاش التلقائي
   Future<String?> _fetchActiveCycleId() async {
     try {
-      var activeSnapAlt = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('active', isEqualTo: true)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
+      var cyclesSnap = await FirebaseFirestore.instance.collection('cycles').get();
 
-      if (activeSnapAlt.docs.isNotEmpty) {
-        return activeSnapAlt.docs.first.id;
-      }
-
-      var activeSnap = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('isActive', isEqualTo: true)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
-
-      if (activeSnap.docs.isNotEmpty) {
-        return activeSnap.docs.first.id;
-      }
-
-      var currentSnap = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('isCurrent', isEqualTo: true)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
-
-      if (currentSnap.docs.isNotEmpty) {
-        return currentSnap.docs.first.id;
+      if (cyclesSnap.docs.isNotEmpty) {
+        for (var doc in cyclesSnap.docs) {
+          var data = doc.data();
+          bool isActive = data['active'] == true || 
+                          data['isActive'] == true || 
+                          data['isCurrent'] == true || 
+                          data['status'] == 'active' || 
+                          data['isClosed'] == false;
+          if (isActive) {
+            return doc.id;
+          }
+        }
       }
     } catch (e) {
-      print("خطأ في جلب الدورة الفعالة للوحة الشرف: $e");
+      debugPrint("خطأ في جلب الدورة الفعالة للوحة الشرف: $e");
     }
     return null;
   }

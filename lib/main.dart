@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart'; // 🎯 للتحقق من بيئة التشغيل (kIsWeb)
+import 'package:flutter/foundation.dart'; // 🎯 للتحقق من بيئة التشغيل وتفعيل debugPrint
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -28,7 +28,7 @@ const AndroidNotificationChannel channel = AndroidNotificationChannel(
 @pragma('vm:entry-point') 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  print("استلام إشعار في الخلفية بنجاح: ${message.messageId}");
+  debugPrint("استلام إشعار في الخلفية بنجاح: ${message.messageId}");
 }
 
 void main() async {
@@ -49,8 +49,14 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    // 🛡️ تفعيل التخزين المؤقت المحلي (Cache) لتوفير القراءات 100%
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
   } catch (e) {
-    print("خطأ في تهيئة الفايربيز: $e");
+    debugPrint("خطأ في تهيئة الفايربيز أو الكاش: $e");
   }
 
   // 🎯 تفعيل الإشعارات للموبايل فقط وحمايتها في الويب لمنع الشاشة البيضاء
@@ -68,7 +74,7 @@ void main() async {
       await flutterLocalNotificationsPlugin.initialize(
         initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse details) {
-          print("تم الضغط على الإشعار المحلي! البيانات: ${details.payload}");
+          debugPrint("تم الضغط على الإشعار المحلي! البيانات: ${details.payload}");
         },
       );
 
@@ -78,7 +84,7 @@ void main() async {
         sound: true, 
       );
     } catch (e) {
-      print("خطأ في إعداد الإشعارات: $e");
+      debugPrint("خطأ في إعداد الإشعارات: $e");
     }
   }
 
@@ -142,7 +148,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _handleNotificationTap(RemoteMessage message) {
-    print("🔔 تم الضغط على الإشعار في تطبيق الأهل! البيانات: ${message.data}");
+    debugPrint("🔔 تم الضغط على الإشعار في تطبيق الأهل! البيانات: ${message.data}");
   }
 
   @override
@@ -242,13 +248,9 @@ class AuthWrapper extends StatelessWidget {
 
         int? serialAsInt = int.tryParse(savedSerial);
 
-        // 🎯 جلب الدورة الفعالة أولاً لاختيار طالب الدورة الجديدة فقط تجنباً للطلاب المنسوخين
+        // 🎯 جلب الدورة الفعالة باختبار شامل لكافة الحقول المحتملة
         return FutureBuilder<QuerySnapshot>(
-          future: FirebaseFirestore.instance
-              .collection('cycles')
-              .where('isClosed', isEqualTo: false)
-              .limit(1)
-              .get(),
+          future: FirebaseFirestore.instance.collection('cycles').get(),
           builder: (context, cycleSnapshot) {
             if (!cycleSnapshot.hasData) {
               return Scaffold(
@@ -259,7 +261,17 @@ class AuthWrapper extends StatelessWidget {
 
             String? activeCycleId;
             if (cycleSnapshot.data!.docs.isNotEmpty) {
-              activeCycleId = cycleSnapshot.data!.docs.first.id;
+              for (var doc in cycleSnapshot.data!.docs) {
+                var data = doc.data() as Map<String, dynamic>;
+                bool isCurrentActive = data['active'] == true || 
+                                       data['isActive'] == true || 
+                                       data['isClosed'] == false || 
+                                       data['status'] == 'active';
+                if (isCurrentActive) {
+                  activeCycleId = doc.id;
+                  break;
+                }
+              }
             }
 
             return FutureBuilder<QuerySnapshot>(
@@ -286,7 +298,7 @@ class AuthWrapper extends StatelessWidget {
                 if (activeCycleId != null) {
                   for (var doc in docs) {
                     var data = doc.data() as Map<String, dynamic>;
-                    if (data['cycleId'] == activeCycleId) {
+                    if (data['cycleId']?.toString() == activeCycleId) {
                       targetStudentDoc = doc;
                       break;
                     }

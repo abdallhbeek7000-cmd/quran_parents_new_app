@@ -45,37 +45,20 @@ class SummaryTab extends StatelessWidget {
 
   Future<String?> _fetchActiveCycleId() async {
     try {
-      var activeSnapAlt = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('active', isEqualTo: true)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
-
-      if (activeSnapAlt.docs.isNotEmpty) {
-        return activeSnapAlt.docs.first.id;
-      }
-
       var activeSnap = await FirebaseFirestore.instance
           .collection('cycles')
-          .where('isActive', isEqualTo: true)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
+          .get();
 
       if (activeSnap.docs.isNotEmpty) {
-        return activeSnap.docs.first.id;
-      }
-
-      var currentSnap = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('isCurrent', isEqualTo: true)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
-
-      if (currentSnap.docs.isNotEmpty) {
-        return currentSnap.docs.first.id;
+        for (var doc in activeSnap.docs) {
+          var data = doc.data();
+          if (data['active'] == true || data['isActive'] == true || data['isClosed'] == false) {
+            return doc.id;
+          }
+        }
       }
     } catch (e) {
-      print("خطأ في جلب الدورة الفعالة للملخص: $e");
+      debugPrint("خطأ في جلب الدورة الفعالة للملخص: $e");
     }
     return null;
   }
@@ -99,7 +82,15 @@ class SummaryTab extends StatelessWidget {
               _buildQuranProgressSection(activeCycleId),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Text("📊 لوحة الأداء والإحصائيات الحية", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Cairo', color: isDarkMode ? Colors.white : primaryColor)),
+                child: Text(
+                  "📊 لوحة الأداء والإحصائيات الحية", 
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold, 
+                    fontSize: 14, 
+                    fontFamily: 'Cairo', 
+                    color: isDarkMode ? Colors.white : primaryColor
+                  )
+                ),
               ),
               _buildParentStatsDashboard(),
               const SizedBox(height: 30),
@@ -111,8 +102,8 @@ class SummaryTab extends StatelessWidget {
   }
 
   Widget _buildDailyInspiration() {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('settings').doc('general').snapshots(),
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('settings').doc('general').get(),
       builder: (context, settingsSnapshot) {
         bool isActive = true;
         if (settingsSnapshot.hasData && settingsSnapshot.data!.exists) {
@@ -186,6 +177,13 @@ class SummaryTab extends StatelessWidget {
     String grade = data['schoolGrade'] ?? 'غير محدد';
     String supervisor = data['supervisorName'] ?? 'غير محدد'; 
     String phone = data['phone'] ?? '---';
+    String pulse = data['livePulse'] ?? 'none';
+
+    Color dotColor = Colors.transparent;
+    String pulseLabel = "";
+    if (pulse == 'green') { dotColor = Colors.greenAccent.shade400; pulseLabel = "يُسمِّع"; }
+    else if (pulse == 'yellow') { dotColor = Colors.amber; pulseLabel = "يراجع"; }
+    else if (pulse == 'blue') { dotColor = Colors.lightBlueAccent; pulseLabel = "أتم التسميع"; }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -251,78 +249,48 @@ class SummaryTab extends StatelessWidget {
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance
-                            .collection('students')
-                            .where('serial', isEqualTo: exactSerial)
-                            .snapshots(),
-                        builder: (context, snapshot) {
-                          String pulse = 'none';
-                          if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                            var docs = snapshot.data!.docs;
-                            var doc = docs.first;
-                            if (activeCycleId != null) {
-                              for (var d in docs) {
-                                var map = d.data() as Map<String, dynamic>;
-                                if (map['cycleId']?.toString().trim() == activeCycleId) {
-                                  doc = d;
-                                  break;
-                                }
-                              }
-                            }
-                            pulse = (doc.data() as Map<String, dynamic>)['livePulse'] ?? 'none';
-                          }
-
-                          Color dotColor = Colors.transparent;
-                          String pulseLabel = "";
-                          if (pulse == 'green') { dotColor = Colors.greenAccent.shade400; pulseLabel = "يُسمِّع"; }
-                          else if (pulse == 'yellow') { dotColor = Colors.amber; pulseLabel = "يراجع"; }
-                          else if (pulse == 'blue') { dotColor = Colors.lightBlueAccent; pulseLabel = "أتم التسميع"; }
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      studentName, 
-                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo', height: 1.2),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  if (pulse != 'none') ...[
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: dotColor.withOpacity(isDarkMode ? 0.15 : 0.1),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: dotColor.withOpacity(0.4)),
-                                      ),
-                                      child: LivePulseDot(color: dotColor, label: pulseLabel),
-                                    ),
-                                  ]
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(color: isDarkMode ? Colors.black26 : Colors.white.withOpacity(0.6), borderRadius: BorderRadius.circular(10), border: Border.all(color: isDarkMode ? Colors.white12 : Colors.black12)),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.pin_rounded, size: 14, color: isDarkMode ? Colors.white70 : Colors.grey.shade700),
-                                    const SizedBox(width: 6),
-                                    Text("الرقم التسلسلي: $serialNumStr", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: isDarkMode ? Colors.white70 : Colors.grey.shade800, letterSpacing: 0.5)),
-                                  ],
+                              Flexible(
+                                child: Text(
+                                  studentName, 
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : primaryColor, fontFamily: 'Cairo', height: 1.2),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (pulse != 'none') ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: dotColor.withOpacity(isDarkMode ? 0.15 : 0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: dotColor.withOpacity(0.4)),
+                                  ),
+                                  child: LivePulseDot(color: dotColor, label: pulseLabel),
+                                ),
+                              ]
                             ],
-                          );
-                        },
+                          ),
+                          const SizedBox(height: 8),
+                          
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(color: isDarkMode ? Colors.black26 : Colors.white.withOpacity(0.6), borderRadius: BorderRadius.circular(10), border: Border.all(color: isDarkMode ? Colors.white12 : Colors.black12)),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.pin_rounded, size: 14, color: isDarkMode ? Colors.white70 : Colors.grey.shade700),
+                                const SizedBox(width: 6),
+                                Text("الرقم التسلسلي: $serialNumStr", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: isDarkMode ? Colors.white70 : Colors.grey.shade800, letterSpacing: 0.5)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     )
                   ],
@@ -348,101 +316,80 @@ class SummaryTab extends StatelessWidget {
   }
 
   Widget _buildStudentPointsWallet(BuildContext context, String? activeCycleId) {
-    var exactSerial = studentData['serial'];
-    
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('students')
-          .where('serial', isEqualTo: exactSerial)
-          .snapshots(),
-      builder: (context, snapshot) {
-        int currentPoints = 0;
-        DocumentSnapshot? targetDoc;
+    int currentPoints = studentData['points'] ?? 0;
 
-        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-          var docs = snapshot.data!.docs;
-          targetDoc = docs.first;
-
-          if (activeCycleId != null) {
-            for (var doc in docs) {
-              var data = doc.data() as Map<String, dynamic>;
-              if (data['cycleId']?.toString().trim() == activeCycleId) {
-                targetDoc = doc;
-                break;
-              }
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () async {
+            // جلب المستند المحدث مرة واحدة فقط عند الضغط
+            var exactSerial = studentData['serial'];
+            var snap = await FirebaseFirestore.instance
+                .collection('students')
+                .where('serial', isEqualTo: exactSerial)
+                .get();
+            if (snap.docs.isNotEmpty && context.mounted) {
+              Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (context) => StudentRewardsPage(studentDoc: snap.docs.first))
+              );
             }
-          }
-          currentPoints = (targetDoc!.data() as Map<String, dynamic>)['points'] ?? 0;
-        }
-
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(24),
-              onTap: () {
-                if (targetDoc != null) {
-                  Navigator.push(
-                    context, 
-                    MaterialPageRoute(builder: (context) => StudentRewardsPage(studentDoc: targetDoc!))
-                  );
-                }
-              },
-              child: _buildGlassContainer(
-                padding: const EdgeInsets.all(16),
-                customColor: isDarkMode ? goldColor.withOpacity(0.06) : Colors.white.withOpacity(0.5),
-                customBorderColor: goldColor.withOpacity(0.3),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          },
+          child: _buildGlassContainer(
+            padding: const EdgeInsets.all(16),
+            customColor: isDarkMode ? goldColor.withOpacity(0.06) : Colors.white.withOpacity(0.5),
+            customBorderColor: goldColor.withOpacity(0.3),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: [goldColor, goldColor.withOpacity(0.6)]),
-                            shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: goldColor.withOpacity(0.4), blurRadius: 10, spreadRadius: 1)]
-                          ),
-                          child: const Icon(Icons.stars_rounded, color: Colors.white, size: 24),
-                        ),
-                        const SizedBox(width: 14),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("رصيدك الحالي من النقاط", style: TextStyle(fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.grey.shade700)),
-                            const SizedBox(height: 2),
-                            Text("اضغط هنا لاستبدال جوائزك وتصفح السجل 🎁", style: TextStyle(fontFamily: 'Cairo', fontSize: 10, color: isDarkMode ? goldColor.withOpacity(0.8) : primaryColor.withOpacity(0.8), fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ],
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [goldColor, goldColor.withOpacity(0.6)]),
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: goldColor.withOpacity(0.4), blurRadius: 10, spreadRadius: 1)]
+                      ),
+                      child: const Icon(Icons.stars_rounded, color: Colors.white, size: 24),
                     ),
-                    
-                    TweenAnimationBuilder<double>(
-                      tween: Tween<double>(begin: 0, end: currentPoints.toDouble()),
-                      duration: const Duration(milliseconds: 1500),
-                      curve: Curves.easeOutBack,
-                      builder: (context, value, child) {
-                        return Text(
-                          value.toStringAsFixed(0),
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w900,
-                            fontFamily: 'Cairo',
-                            color: isDarkMode ? goldColor : primaryColor,
-                            shadows: [Shadow(color: goldColor.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))]
-                          ),
-                        );
-                      },
+                    const SizedBox(width: 14),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("رصيدك الحالي من النقاط", style: TextStyle(fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.grey.shade700)),
+                        const SizedBox(height: 2),
+                        Text("اضغط هنا لاستبدال جوائزك وتصفح السجل 🎁", style: TextStyle(fontFamily: 'Cairo', fontSize: 10, color: isDarkMode ? goldColor.withOpacity(0.8) : primaryColor.withOpacity(0.8), fontWeight: FontWeight.w600)),
+                      ],
                     ),
                   ],
                 ),
-              ),
+                
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: currentPoints.toDouble()),
+                  duration: const Duration(milliseconds: 1200),
+                  curve: Curves.easeOutBack,
+                  builder: (context, value, child) {
+                    return Text(
+                      value.toStringAsFixed(0),
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        fontFamily: 'Cairo',
+                        color: isDarkMode ? goldColor : primaryColor,
+                        shadows: [Shadow(color: goldColor.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))]
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -594,12 +541,10 @@ class SummaryTab extends StatelessWidget {
     );
   }
 
-  // 🚀 دالة حساب وقراءة التقدم الشاملة والمعدلة
   Widget _buildQuranProgressSection(String? activeCycleId) {
     bool isCompleted = studentData['studentType'] == 'completed';
     double savedPages = 0.0;
 
-    // 🎯 1. فحص customLastPage أولاً إذا تم تمريره من ParentHomePage
     if (studentData.containsKey('customLastPage') && studentData['customLastPage'] != null) {
       double customVal = double.tryParse(studentData['customLastPage'].toString()) ?? 0.0;
       if (customVal > 0) {
@@ -607,7 +552,6 @@ class SummaryTab extends StatelessWidget {
       }
     }
 
-    // 🎯 2. إذا لم تجد، استخراج الرقم المحدث من أحدث جلسات الطالب مباشرة عبر memorizedPages
     if (savedPages == 0 && sessionSnapshot.hasData && sessionSnapshot.data!.docs.isNotEmpty) {
       var sessionDocs = sessionSnapshot.data!.docs;
       
@@ -639,7 +583,6 @@ class SummaryTab extends StatelessWidget {
       for (var doc in sortedSessions) {
         var data = doc.data() as Map;
 
-        // 🎯 فحص memorizedPages وحالات التسمية المختلفة بدقة
         double? extractedVal = double.tryParse(data['memorizedPages']?.toString() ?? '') ??
                               double.tryParse(data['totalMemorizedPages']?.toString() ?? '') ??
                               double.tryParse(data['total_memorized_pages']?.toString() ?? '') ??
@@ -674,7 +617,6 @@ class SummaryTab extends StatelessWidget {
       }
     }
 
-    // 🎯 3. الاحتياط المباشر من مستند الطالب
     if (savedPages == 0) {
       savedPages = double.tryParse(studentData['memorizedPages']?.toString() ?? '') ??
                    double.tryParse(studentData['end_page']?.toString() ?? '') ??

@@ -30,53 +30,26 @@ class DailyLogTab extends StatelessWidget {
     return DateTime(2000);
   }
 
-  // 🎯 جلب ID الدورة الفعالة حالياً بشكل مباشر ومطابق لقاعدة البيانات (active: true)
+  // 🎯 جلب ID الدورة الفعالة من الكاش المحلي لتوفير الكوتا 100%
   Future<String?> _getActiveCycleId() async {
     try {
-      // 1. الفحص بالحقل الحقيقي في قاعدة البيانات لديك (active == true)
-      var activeSnapAlt = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('active', isEqualTo: true)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
+      var cyclesSnap = await FirebaseFirestore.instance.collection('cycles').get();
 
-      if (activeSnapAlt.docs.isNotEmpty) {
-        return activeSnapAlt.docs.first.id;
-      }
-
-      var activeSnap = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('isActive', isEqualTo: true)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
-
-      if (activeSnap.docs.isNotEmpty) {
-        return activeSnap.docs.first.id;
-      }
-
-      // 2. فحص بحقل isCurrent == true
-      var currentSnap = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('isCurrent', isEqualTo: true)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
-
-      if (currentSnap.docs.isNotEmpty) {
-        return currentSnap.docs.first.id;
-      }
-
-      // 3. فحص بحقل status == 'active'
-      var statusSnap = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('status', isEqualTo: 'active')
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
-
-      if (statusSnap.docs.isNotEmpty) {
-        return statusSnap.docs.first.id;
+      if (cyclesSnap.docs.isNotEmpty) {
+        for (var doc in cyclesSnap.docs) {
+          var data = doc.data();
+          bool isActive = data['active'] == true || 
+                          data['isActive'] == true || 
+                          data['isCurrent'] == true || 
+                          data['status'] == 'active' || 
+                          data['isClosed'] == false;
+          if (isActive) {
+            return doc.id;
+          }
+        }
       }
     } catch (e) {
-      print("خطأ في جلب الدورة الفعالة للسجل اليومي: $e");
+      debugPrint("خطأ في جلب الدورة الفعالة للسجل اليومي: $e");
     }
     return null;
   }
