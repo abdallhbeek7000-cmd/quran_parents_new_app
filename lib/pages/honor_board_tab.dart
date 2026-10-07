@@ -22,19 +22,9 @@ class HonorBoardTab extends StatelessWidget {
   final Color primaryColor = const Color(0xff425c75);
   final Color goldColor = const Color(0xffD4AF37);
 
-  // 🎯 جلب ID الدورة الفعالة حالياً مباشرة من السيرفر لمنع الكاش
+  // 🎯 جلب ID الدورة الفعالة حالياً مباشرة
   Future<String?> _fetchActiveCycleId() async {
     try {
-      var activeSnap = await FirebaseFirestore.instance
-          .collection('cycles')
-          .where('isActive', isEqualTo: true)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
-
-      if (activeSnap.docs.isNotEmpty) {
-        return activeSnap.docs.first.id;
-      }
-
       var activeSnapAlt = await FirebaseFirestore.instance
           .collection('cycles')
           .where('active', isEqualTo: true)
@@ -45,14 +35,24 @@ class HonorBoardTab extends StatelessWidget {
         return activeSnapAlt.docs.first.id;
       }
 
-      var closedSnap = await FirebaseFirestore.instance
+      var activeSnap = await FirebaseFirestore.instance
           .collection('cycles')
-          .where('isClosed', isEqualTo: false)
+          .where('isActive', isEqualTo: true)
           .limit(1)
           .get(const GetOptions(source: Source.server));
 
-      if (closedSnap.docs.isNotEmpty) {
-        return closedSnap.docs.first.id;
+      if (activeSnap.docs.isNotEmpty) {
+        return activeSnap.docs.first.id;
+      }
+
+      var currentSnap = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('isCurrent', isEqualTo: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (currentSnap.docs.isNotEmpty) {
+        return currentSnap.docs.first.id;
       }
     } catch (e) {
       print("خطأ في جلب الدورة الفعالة للوحة الشرف: $e");
@@ -67,12 +67,14 @@ class HonorBoardTab extends StatelessWidget {
       builder: (context, cycleSnap) {
         String? activeCycleId = cycleSnap.data;
 
-        // 🎯 فلترة الفائزين ليتم عرض المتميزين التابعين للدورة النشطة فقط
+        // 🎯 فلترة مرنة وذكية للنجوم تضمن ظهورهم بدقة دون استبعادهم بالخطأ
         List<Map<String, dynamic>> activeWinners = allWinners.where((winner) {
           if (activeCycleId == null || activeCycleId.isEmpty) return true;
           String? winnerCycleId = winner['cycleId']?.toString().trim();
+          
+          // إظهار النجوم إذا لم يتوفر cycleId في مستند النجم أو في حال تطابقه
           if (winnerCycleId == null || winnerCycleId.isEmpty) return true;
-          return winnerCycleId == activeCycleId;
+          return winnerCycleId == activeCycleId.trim();
         }).toList();
 
         return SingleChildScrollView(
@@ -81,7 +83,7 @@ class HonorBoardTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // 🚀 1. ترويسة الصفحة
+              // 🚀 1. ترويسة لوحة الشرف
               Icon(Icons.workspace_premium_rounded, size: 70, color: goldColor.withOpacity(isDarkMode ? 0.8 : 0.6)),
               const SizedBox(height: 10),
               Text(
@@ -101,7 +103,7 @@ class HonorBoardTab extends StatelessWidget {
               Divider(color: isDarkMode ? Colors.white12 : Colors.black12, indent: 40, endIndent: 40),
               const SizedBox(height: 15),
 
-              // 🚀 2. شبكة النجوم التفاعلية المفلوترة للدورة الجديدة
+              // 🚀 2. عرض نجوم التميز
               _buildHonorBoardGrid(activeWinners),
             ],
           ),
@@ -144,11 +146,13 @@ class HonorBoardTab extends StatelessWidget {
         itemCount: filteredWinners.length,
         itemBuilder: (context, index) {
           var winner = filteredWinners[index];
-          String winnerSerialStr = winner['serial']?.toString() ?? '';
-          String winnerName = winner['name'] ?? '';
           
-          bool isCurrent = (winnerSerialStr == currentStudentSerial && currentStudentSerial.isNotEmpty);
-          String finalImageUrl = studentImagesCache[winnerSerialStr] ?? '';
+          // قراءة البيانات بكافة أشكال تسميات الحقول المتوقعة من Firestore
+          String winnerSerialStr = (winner['serial'] ?? winner['studentSerial'] ?? winner['id'])?.toString().trim() ?? '';
+          String winnerName = (winner['name'] ?? winner['studentName'] ?? 'طالب متميز').toString();
+          String customImage = (winner['imageUrl'] ?? winner['image'] ?? studentImagesCache[winnerSerialStr] ?? '').toString();
+          
+          bool isCurrent = (currentStudentSerial.isNotEmpty && winnerSerialStr == currentStudentSerial.trim());
 
           return _buildGlassContainer(
             padding: const EdgeInsets.all(8),
@@ -169,9 +173,9 @@ class HonorBoardTab extends StatelessWidget {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(30),
-                        child: finalImageUrl.isNotEmpty && finalImageUrl.startsWith('http')
+                        child: customImage.isNotEmpty && customImage.startsWith('http')
                             ? CachedNetworkImage(
-                                imageUrl: finalImageUrl,
+                                imageUrl: customImage,
                                 fit: BoxFit.cover,
                                 placeholder: (context, url) => const Center(child: SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2))),
                                 errorWidget: (context, url, error) => _buildFallbackAvatar(winnerName),
