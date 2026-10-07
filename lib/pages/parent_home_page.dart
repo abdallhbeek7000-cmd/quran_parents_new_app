@@ -73,7 +73,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     super.dispose();
   }
 
-  // 🎯 جلب ID الدورة الفعالة
   Future<void> _initActiveCycle() async {
     try {
       var cyclesSnap = await FirebaseFirestore.instance.collection('cycles').get();
@@ -436,6 +435,12 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
         final String supervisorId = data['supervisorId'] ?? '';
         final String supervisorName = data['supervisorName'] ?? 'المشرف';
 
+        // 🚀 إنشاء استعلام مخصص وسريع يجلب جلسات الطالب المحددة فقط من السيرفر فوراً
+        Query sessionsQuery = FirebaseFirestore.instance.collection('sessions');
+        if (_activeCycleId.isNotEmpty) {
+          sessionsQuery = sessionsQuery.where('cycleId', isEqualTo: _activeCycleId);
+        }
+
         return Scaffold(
           extendBodyBehindAppBar: true, 
           extendBody: true, 
@@ -497,9 +502,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
               SafeArea(
                 bottom: false,
                 child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('sessions')
-                      .snapshots(),
+                  stream: sessionsQuery.snapshots(),
                   builder: (context, sessionSnapshot) {
                     int totalSessions = 0;
                     int absentCount = 0;
@@ -511,19 +514,15 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                     if (sessionSnapshot.hasData && sessionSnapshot.data!.docs.isNotEmpty) {
                       var allSessions = sessionSnapshot.data!.docs;
 
+                      // تصفية سريعة لجلسات هذا الطالب بلمشة عين
                       var docs = allSessions.where((doc) {
                         String docId = doc.id;
                         var sData = doc.data() as Map<String, dynamic>;
-                        String cycleIdInSession = sData['cycleId']?.toString().trim() ?? '';
                         String studentIdInSession = sData['studentId']?.toString().trim() ?? '';
 
-                        bool matchesStudent = docId.startsWith('${studentId}_') || 
-                                             docId.startsWith(studentId) || 
-                                             studentIdInSession == studentId;
-                        
-                        bool matchesCycle = _activeCycleId.isEmpty || cycleIdInSession == _activeCycleId.trim();
-
-                        return matchesStudent && matchesCycle;
+                        return docId.startsWith('${studentId}_') || 
+                               docId.startsWith(studentId) || 
+                               studentIdInSession == studentId;
                       }).toList();
 
                       totalSessions = docs.length;
@@ -548,7 +547,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
 
                     int presentCount = totalSessions - absentCount;
 
-                    // 🎯 قراءة إجمالي الحفظ للختمة من أحدث جلسة
+                    // 🎯 جلب إجمالي الحفظ المباشر
                     Map<String, dynamic>? latestSessionData;
                     if (sortedDocs.isNotEmpty) {
                       latestSessionData = sortedDocs.first.data() as Map<String, dynamic>?;
@@ -556,14 +555,17 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
 
                     int totalMemorizedPages = 0;
                     if (latestSessionData != null) {
-                      totalMemorizedPages = int.tryParse(latestSessionData['totalMemorized']?.toString() ?? '') ??
-                                            int.tryParse(latestSessionData['totalMemorizationPages']?.toString() ?? '') ??
+                      totalMemorizedPages = int.tryParse(latestSessionData['memorizedPages']?.toString() ?? '') ??
+                                            int.tryParse(latestSessionData['totalMemorizedPages']?.toString() ?? '') ??
+                                            int.tryParse(latestSessionData['total_memorized_pages']?.toString() ?? '') ??
+                                            int.tryParse(latestSessionData['totalMemorized']?.toString() ?? '') ??
                                             int.tryParse(latestSessionData['totalPages']?.toString() ?? '') ??
                                             int.tryParse(latestSessionData['end_page']?.toString() ?? '') ?? 0;
                     }
 
                     if (totalMemorizedPages == 0) {
-                      totalMemorizedPages = int.tryParse(data['end_page']?.toString() ?? '') ??
+                      totalMemorizedPages = int.tryParse(data['memorizedPages']?.toString() ?? '') ??
+                                            int.tryParse(data['end_page']?.toString() ?? '') ??
                                             int.tryParse(data['lastPage']?.toString() ?? '') ?? 0;
                     }
 
@@ -574,7 +576,7 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
                           child: SummaryTab(
                             studentData: {
                               ...data,
-                              'customLastPage': totalMemorizedPages, // يمرر قيمة إجمالي الحفظ للختمة بدقة
+                              'customLastPage': totalMemorizedPages,
                             }, 
                             sessionSnapshot: sessionSnapshot, 
                             total: totalSessions, 
