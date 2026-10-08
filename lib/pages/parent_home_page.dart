@@ -43,7 +43,8 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
 
   List<DocumentSnapshot> siblings = [];
   String _activeCycleId = '';
-  DocumentSnapshot? _resolvedStudentDoc;
+  bool _isLoading = true;
+  DocumentSnapshot? _activeStudentDoc;
 
   late AnimationController _bgController;
   late Animation<double> _bgAnimation;
@@ -51,7 +52,6 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    _resolvedStudentDoc = widget.student;
     _pageController = PageController(initialPage: _currentTabIndex);
 
     FirebaseMessaging.instance.requestPermission(
@@ -61,9 +61,8 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     _bgController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
     _bgAnimation = Tween<double>(begin: -10, end: 20).animate(CurvedAnimation(parent: _bgController, curve: Curves.easeInOutSine));
 
-    _initActiveCycleAndStudent();
+    _loadActiveData();
     _loadHonorBoardAndImages();
-    _saveDeviceToken(); 
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       UpdateChecker.checkForUpdates(context);
@@ -77,67 +76,77 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     super.dispose();
   }
 
-  // 🚀 جلب الدورة الفعالة فوراً وبدقة مطابقة لكافة أسماء الحقول الممكنة
-  Future<void> _initActiveCycleAndStudent() async {
+  // 🚀 جلب الدورة النشطة وطالب الدورة النشطة بشكل نهائي
+  Future<void> _loadActiveData() async {
     try {
-      var cyclesSnap = await FirebaseFirestore.instance.collection('cycles').get();
-      String foundCycleId = '';
+      var cycleQuery = await FirebaseFirestore.instance
+          .collection('cycles')
+          .where('active', isEqualTo: true)
+          .limit(1)
+          .get();
 
-      for (var doc in cyclesSnap.docs) {
-        var d = doc.data();
-        bool isActive = d['active'] == true || 
-                        d['isActive'] == true || 
-                        d['isCurrent'] == true || 
-                        d['status'] == 'active';
-        if (isActive) {
-          foundCycleId = doc.id;
-          break;
+      if (cycleQuery.docs.isNotEmpty) {
+        _activeCycleId = cycleQuery.docs.first.id;
+      } else {
+        var isCurrentSnap = await FirebaseFirestore.instance
+            .collection('cycles')
+            .where('isCurrent', isEqualTo: true)
+            .limit(1)
+            .get();
+        if (isCurrentSnap.docs.isNotEmpty) {
+          _activeCycleId = isCurrentSnap.docs.first.id;
         }
       }
 
-      if (foundCycleId.isNotEmpty) {
-        _activeCycleId = foundCycleId;
-      }
+      final initialData = widget.student.data() as Map<String, dynamic>? ?? {};
+      final String serial = initialData['serial']?.toString().trim() ?? '';
 
-      // البحث عن مستند الطالب بالدورة الفعالة لمنع العودة للدورة القديمة
-      final currentData = widget.student.data() as Map<String, dynamic>? ?? {};
-      final String currentSerial = currentData['serial']?.toString().trim() ?? '';
-
-      if (currentSerial.isNotEmpty) {
-        var studentMatch = await FirebaseFirestore.instance
+      if (serial.isNotEmpty && _activeCycleId.isNotEmpty) {
+        var studentQuery = await FirebaseFirestore.instance
             .collection('students')
-            .where('serial', isEqualTo: int.tryParse(currentSerial) ?? currentSerial)
+            .where('serial', isEqualTo: int.tryParse(serial) ?? serial)
+            .where('cycleId', isEqualTo: _activeCycleId)
             .get();
 
-        if (studentMatch.docs.isNotEmpty) {
-          DocumentSnapshot? activeDoc;
-          if (_activeCycleId.isNotEmpty) {
-            for (var doc in studentMatch.docs) {
-              var sData = doc.data() as Map<String, dynamic>;
-              if (sData['cycleId']?.toString().trim() == _activeCycleId) {
-                activeDoc = doc;
-                break;
-              }
-            }
-          }
-          activeDoc ??= studentMatch.docs.first;
-          if (mounted) {
-            setState(() {
-              _resolvedStudentDoc = activeDoc;
-            });
+        if (studentQuery.docs.isNotEmpty) {
+          _activeStudentDoc = studentQuery.docs.first;
+        }
+      }
+
+      if (_activeStudentDoc == null && serial.isNotEmpty) {
+        var fallbackQuery = await FirebaseFirestore.instance
+            .collection('students')
+            .where('serial', isEqualTo: int.tryParse(serial) ?? serial)
+            .get();
+
+        for (var doc in fallbackQuery.docs) {
+          var d = doc.data();
+          if (d['cycleId']?.toString().trim() != 'rRDaBmGjfo6RMOXcF5fm') {
+            _activeStudentDoc = doc;
+            break;
           }
         }
       }
 
+      _activeStudentDoc ??= widget.student;
+
+      _saveDeviceToken();
       _fetchActiveSiblings();
+
     } catch (e) {
-      debugPrint("خطأ جلب الدورة الفعالة والطالب: $e");
+      debugPrint("خطأ تحميل البيانات النشطة: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   void _fetchActiveSiblings() async {
     try {
-      final currentData = (_resolvedStudentDoc ?? widget.student).data() as Map<String, dynamic>?;
+      final currentData = _activeStudentDoc?.data() as Map<String, dynamic>?;
       if (currentData == null) return;
 
       final String phone = currentData['phone']?.toString().trim() ?? '';
@@ -166,9 +175,10 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
 
   void _saveDeviceToken() async {
     try {
+      if (_activeStudentDoc == null) return;
       String? token = await FirebaseMessaging.instance.getToken();
       if (token != null) {
-        await FirebaseFirestore.instance.collection('students').doc((_resolvedStudentDoc ?? widget.student).id).update({'fcmToken': token});
+        await FirebaseFirestore.instance.collection('students').doc(_activeStudentDoc!.id).update({'fcmToken': token});
       }
     } catch (e) {
       debugPrint("Error saving FCM token: $e");
@@ -219,23 +229,324 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
     );
   }
 
+  // 📝 نافذة طلب إذن الغياب بتصميم مطابِق للصورة ومنع التكرار بنفس اليوم
+  void _showLeaveRequestDialog(bool isDarkMode) {
+    DateTime selectedDate = DateTime.now();
+    String selectedReason = 'مرض'; // الخيار الافتراضي
+    bool isSubmitting = false;
+
+    // الخيارات المطابقة تماماً للصورة
+    final List<String> reasonsOptions = [
+      'دراسة',
+      'سفر',
+      'مرض',
+      'زيارة',
+      'عمل',
+      'حالة وفاة',
+      'لم يحضر الطالب',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            String dateFormatted = "${selectedDate.day}-${selectedDate.month}-${selectedDate.year}";
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(32),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? const Color(0xff1e293b).withOpacity(0.95) : Colors.white.withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(color: isDarkMode ? Colors.white12 : Colors.white.withOpacity(0.8), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        )
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // أيقونة رأس النافذة
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: const Color(0xffeab308).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: const Icon(Icons.event_busy_rounded, color: Color(0xffeab308), size: 34),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // العنوان الرئيسي
+                        Text(
+                          'طلب إذن غياب',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            color: isDarkMode ? Colors.white : primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // اختيار تاريخ الغياب
+                        GestureDetector(
+                          onTap: () async {
+                            DateTime? picked = await showDatePicker(
+                              context: context,
+                              initialDate: selectedDate,
+                              firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                              lastDate: DateTime.now().add(const Duration(days: 30)),
+                            );
+                            if (picked != null) {
+                              setDialogState(() => selectedDate = picked);
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isDarkMode ? Colors.white.withOpacity(0.05) : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: isDarkMode ? Colors.white12 : Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  "تاريخ الغياب: $dateFormatted",
+                                  style: TextStyle(
+                                    fontFamily: 'Cairo',
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: isDarkMode ? Colors.white : primaryColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(Icons.calendar_month_rounded, color: goldColor, size: 20),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // عنوان اختيار سبب الغياب
+                        Text(
+                          'حدد سبب الغياب:',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: isDarkMode ? Colors.white70 : Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // شبكة أزرار خيارات الأسباب المطابقة للصورة تماماً
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          alignment: WrapAlignment.center,
+                          children: reasonsOptions.map((reason) {
+                            bool isSelected = selectedReason == reason;
+                            // الزر الأخير يأخذ عرضاً عريضاً
+                            bool isFullWidth = reason == 'لم يحضر الطالب';
+
+                            return SizedBox(
+                              width: isFullWidth ? 180 : 85,
+                              height: 42,
+                              child: InkWell(
+                                onTap: () {
+                                  setDialogState(() => selectedReason = reason);
+                                },
+                                borderRadius: BorderRadius.circular(14),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xffeab308)
+                                        : (isDarkMode ? Colors.transparent : Colors.white),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: isSelected ? const Color(0xffeab308) : Colors.black87,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      if (isSelected) ...[
+                                        const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+                                        const SizedBox(width: 4),
+                                      ],
+                                      Text(
+                                        reason,
+                                        style: TextStyle(
+                                          fontFamily: 'Cairo',
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: isSelected
+                                              ? Colors.white
+                                              : (isDarkMode ? Colors.white : Colors.black87),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // زر إرسال الطلب الذهبي العريض
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xffeab308),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                            ),
+                            onPressed: isSubmitting ? null : () async {
+                              setDialogState(() => isSubmitting = true);
+
+                              try {
+                                final studentId = _activeStudentDoc!.id;
+                                final String dateForFirestore = "${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}";
+
+                                // 🛑 الشرط الحاسم: فحص الفايربيس لمنع تكرار إرسال طلب لنفس اليوم
+                                var existingRequestSnap = await FirebaseFirestore.instance
+                                    .collection('leave_requests')
+                                    .where('studentId', isEqualTo: studentId)
+                                    .where('date', isEqualTo: dateForFirestore)
+                                    .get();
+
+                                if (existingRequestSnap.docs.isNotEmpty) {
+                                  setDialogState(() => isSubmitting = false);
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        backgroundColor: Colors.deepOrange,
+                                        content: Text('⚠️ تم تقديم طلب استئذان لهذا اليوم مسبقاً، يرجى انتظار رد المشرف.', style: TextStyle(fontFamily: 'Cairo')),
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+
+                                final sData = _activeStudentDoc!.data() as Map<String, dynamic>? ?? {};
+
+                                // حفظ الطلب الجديد في Firestore
+                                await FirebaseFirestore.instance.collection('leave_requests').add({
+                                  'studentId': studentId,
+                                  'studentName': sData['name'] ?? 'طالب',
+                                  'supervisorId': sData['supervisorId'] ?? '',
+                                  'supervisorName': sData['supervisorName'] ?? 'المشرف',
+                                  'cycleId': _activeCycleId,
+                                  'date': dateForFirestore,
+                                  'reason': selectedReason,
+                                  'status': 'pending',
+                                  'requestTime': "${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}",
+                                  'timestamp': FieldValue.serverTimestamp(),
+                                });
+
+                                // إرسال الإشعار للمدراء والمشرف
+                                var managersSnap = await FirebaseFirestore.instance.collection('users').where('role', isEqualTo: 'manager').get();
+                                for (var mDoc in managersSnap.docs) {
+                                  await NotificationService.sendAndSaveNotification(
+                                    studentId: mDoc.id,
+                                    title: "طلب استئذان جديد 📝",
+                                    body: "قدم الطالب (${sData['name']}) طلب استئذان ليوم ($dateForFirestore) - السبب: $selectedReason",
+                                    type: "leave_request",
+                                  );
+                                }
+
+                                if ((sData['supervisorId'] ?? '').toString().isNotEmpty) {
+                                  await NotificationService.sendAndSaveNotification(
+                                    studentId: sData['supervisorId'],
+                                    title: "طلب استئذان جديد 📝",
+                                    body: "قدم الطالب (${sData['name']}) طلب استئذان ليوم ($dateForFirestore) - السبب: $selectedReason",
+                                    type: "leave_request",
+                                  );
+                                }
+
+                                if (mounted) {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      backgroundColor: Colors.green,
+                                      content: Text('تم إرسال طلب الاستئذان بنجاح 🎉', style: TextStyle(fontFamily: 'Cairo')),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                setDialogState(() => isSubmitting = false);
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('حدث خطأ: $e', style: const TextStyle(fontFamily: 'Cairo'))));
+                              }
+                            },
+                            child: isSubmitting
+                                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Text(
+                                    'إرسال الطلب',
+                                    style: TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
-    final activeStudent = _resolvedStudentDoc ?? widget.student;
-    final Map<String, dynamic> data = activeStudent.data() as Map<String, dynamic>? ?? {};
 
-    final String studentId = activeStudent.id;
+    if (_isLoading || _activeStudentDoc == null) {
+      return Scaffold(
+        backgroundColor: isDarkMode ? const Color(0xff121212) : const Color(0xfff1f5f9),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final Map<String, dynamic> data = _activeStudentDoc!.data() as Map<String, dynamic>? ?? {};
+
+    final String studentId = _activeStudentDoc!.id;
     final String studentName = data['name'] ?? 'الطالب';
     final String serialStr = data['serial']?.toString() ?? '';
     final bool isCompletedStudent = data['studentType'] == 'completed';
     final String supervisorId = data['supervisorId'] ?? '';
     final String supervisorName = data['supervisorName'] ?? 'المشرف';
 
-    // استعلام مباشر وسريع للجلسات المخصصة لهذا الطالب والدورة الحالية
     Query sessionsQuery = FirebaseFirestore.instance
         .collection('sessions')
-        .where('studentId', isEqualTo: studentId);
+        .where('studentId', isEqualTo: studentId)
+        .where('cycleId', isEqualTo: _activeCycleId);
 
     return Scaffold(
       extendBodyBehindAppBar: true, 
@@ -247,6 +558,12 @@ class _ParentHomePageState extends State<ParentHomePage> with SingleTickerProvid
         title: Text(_getAppBarTitle(_currentTabIndex, studentName), style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : primaryColor, fontSize: 16, fontFamily: 'Cairo')),
         centerTitle: true,
         actions: [
+          // 📝 زر إرسال طلب استئذان غياب
+          IconButton(
+            icon: Icon(Icons.event_note_rounded, color: isDarkMode ? goldColor : primaryColor),
+            tooltip: 'طلب استئذان غياب',
+            onPressed: () => _showLeaveRequestDialog(isDarkMode),
+          ),
           if (siblings.isNotEmpty)
             IconButton(
               icon: Icon(Icons.people_alt_rounded, color: isDarkMode ? goldColor : primaryColor),
