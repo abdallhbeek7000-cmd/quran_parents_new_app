@@ -115,8 +115,8 @@ class DailyLogTab extends StatelessWidget {
                       Icons.history_toggle_off_rounded,
                       size: 56,
                       color: isDarkMode
-                          ? accentGold.withValues(alpha: 0.7)
-                          : primaryColor.withValues(alpha: 0.45),
+                          ? accentGold.withOpacity(0.7)
+                          : primaryColor.withOpacity(0.45),
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -212,13 +212,14 @@ class DailyLogTab extends StatelessWidget {
 
     // 🌴 تصميم بطاقة العطلة الرسمية مطابق لتطبيق المشرف بلمسة Liquid Glass
     if (isHoliday) {
-      final String holidayReason = session['note']?.toString().trim().isNotEmpty == true
-          ? session['note'].toString().trim()
-          : (session['notes']?.toString().trim().isNotEmpty == true
-              ? session['notes'].toString().trim()
-              : (session['title']?.toString().trim().isNotEmpty == true
-                  ? session['title'].toString().trim()
-                  : 'عطلة رسمية / إجازة معتمدة'));
+      final String holidayReason =
+          session['note']?.toString().trim().isNotEmpty == true
+              ? session['note'].toString().trim()
+              : (session['notes']?.toString().trim().isNotEmpty == true
+                  ? session['notes'].toString().trim()
+                  : (session['title']?.toString().trim().isNotEmpty == true
+                      ? session['title'].toString().trim()
+                      : 'عطلة رسمية / إجازة معتمدة'));
 
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
@@ -232,23 +233,23 @@ class DailyLogTab extends StatelessWidget {
                 gradient: LinearGradient(
                   colors: isDarkMode
                       ? [
-                          const Color(0xffb45309).withValues(alpha: 0.34),
-                          const Color(0xff78350f).withValues(alpha: 0.22),
+                          const Color(0xffb45309).withOpacity(0.34),
+                          const Color(0xff78350f).withOpacity(0.22),
                         ]
                       : [
-                          const Color(0xfffef3c7).withValues(alpha: 0.85),
-                          const Color(0xfffde68a).withValues(alpha: 0.72),
+                          const Color(0xfffef3c7).withOpacity(0.85),
+                          const Color(0xfffde68a).withOpacity(0.72),
                         ],
                   begin: Alignment.topRight,
                   end: Alignment.bottomLeft,
                 ),
                 border: Border.all(
-                  color: Colors.amber.shade600.withValues(alpha: 0.65),
+                  color: Colors.amber.shade600.withOpacity(0.65),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.amber.shade900.withValues(alpha: 0.12),
+                    color: Colors.amber.shade900.withOpacity(0.12),
                     blurRadius: 16,
                     offset: const Offset(0, 7),
                   ),
@@ -274,8 +275,7 @@ class DailyLogTab extends StatelessWidget {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.amber.shade800
-                                    .withValues(alpha: 0.32),
+                                color: Colors.amber.shade800.withOpacity(0.32),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -311,12 +311,12 @@ class DailyLogTab extends StatelessWidget {
                                         horizontal: 11, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: Colors.amber.shade800
-                                          .withValues(alpha: 0.9),
+                                          .withOpacity(0.9),
                                       borderRadius: BorderRadius.circular(20),
                                       boxShadow: [
                                         BoxShadow(
                                           color: Colors.amber.shade900
-                                              .withValues(alpha: 0.25),
+                                              .withOpacity(0.25),
                                           blurRadius: 6,
                                         ),
                                       ],
@@ -369,11 +369,11 @@ class DailyLogTab extends StatelessWidget {
                           horizontal: 14, vertical: 11),
                       decoration: BoxDecoration(
                         color: isDarkMode
-                            ? Colors.black.withValues(alpha: 0.25)
-                            : Colors.white.withValues(alpha: 0.68),
+                            ? Colors.black.withOpacity(0.25)
+                            : Colors.white.withOpacity(0.68),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.amber.shade600.withValues(alpha: 0.35),
+                          color: Colors.amber.shade600.withOpacity(0.35),
                         ),
                       ),
                       child: Row(
@@ -505,8 +505,8 @@ class DailyLogTab extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
       child: _buildGlassContainer(
-        customBorderColor: statusAccent.withValues(
-            alpha: (isAbsent || isExam || didNotRecite) ? 0.45 : 0.25),
+        customBorderColor: statusAccent
+            .withOpacity((isAbsent || isExam || didNotRecite) ? 0.45 : 0.25),
         child: Column(
           children: [
             // رأس البطاقة الزجاجي المتدرج
@@ -517,28 +517,25 @@ class DailyLogTab extends StatelessWidget {
                   colors: isAbsent
                       ? [
                           Colors.redAccent
-                              .withValues(alpha: isDarkMode ? 0.24 : 0.14),
+                              .withOpacity(isDarkMode ? 0.24 : 0.14),
                           Colors.redAccent
-                              .withValues(alpha: isDarkMode ? 0.08 : 0.04),
+                              .withOpacity(isDarkMode ? 0.08 : 0.04),
                         ]
                       : (isExam
                           ? [
-                              Colors.teal
-                                  .withValues(alpha: isDarkMode ? 0.24 : 0.14),
-                              Colors.teal
-                                  .withValues(alpha: isDarkMode ? 0.08 : 0.04),
+                              Colors.teal.withOpacity(isDarkMode ? 0.24 : 0.14),
+                              Colors.teal.withOpacity(isDarkMode ? 0.08 : 0.04),
                             ]
                           : (didNotRecite
                               ? [
-                                  Colors.blueGrey.withValues(
-                                      alpha: isDarkMode ? 0.24 : 0.14),
-                                  Colors.blueGrey.withValues(
-                                      alpha: isDarkMode ? 0.08 : 0.04),
+                                  Colors.blueGrey
+                                      .withOpacity(isDarkMode ? 0.24 : 0.14),
+                                  Colors.blueGrey
+                                      .withOpacity(isDarkMode ? 0.08 : 0.04),
                                 ]
                               : [
                                   (isDarkMode ? accentGold : primaryColor)
-                                      .withValues(
-                                          alpha: isDarkMode ? 0.16 : 0.09),
+                                      .withOpacity(isDarkMode ? 0.16 : 0.09),
                                   Colors.transparent,
                                 ])),
                   begin: Alignment.topRight,
@@ -547,8 +544,8 @@ class DailyLogTab extends StatelessWidget {
                 border: Border(
                   bottom: BorderSide(
                     color: isDarkMode
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : Colors.white.withValues(alpha: 0.65),
+                        ? Colors.white.withOpacity(0.08)
+                        : Colors.white.withOpacity(0.65),
                   ),
                 ),
               ),
@@ -560,10 +557,10 @@ class DailyLogTab extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(7),
                         decoration: BoxDecoration(
-                          color: statusAccent.withValues(alpha: 0.16),
+                          color: statusAccent.withOpacity(0.16),
                           borderRadius: BorderRadius.circular(11),
                           border: Border.all(
-                            color: statusAccent.withValues(alpha: 0.35),
+                            color: statusAccent.withOpacity(0.35),
                           ),
                         ),
                         child: Icon(
@@ -622,13 +619,13 @@ class DailyLogTab extends StatelessWidget {
                             "غائب ❌",
                             isDarkMode ? Colors.white : Colors.red.shade800,
                             Colors.redAccent
-                                .withValues(alpha: isDarkMode ? 0.38 : 0.18))
+                                .withOpacity(isDarkMode ? 0.38 : 0.18))
                       else if (isExam)
                         _buildCustomBadge(
                             "جلسة اختبار 📝",
                             isDarkMode ? Colors.white : Colors.teal.shade800,
                             Colors.teal
-                                .withValues(alpha: isDarkMode ? 0.38 : 0.18))
+                                .withOpacity(isDarkMode ? 0.38 : 0.18))
                       else if (didNotRecite)
                         _buildCustomBadge(
                             "حضر ولم يسمّع ℹ️",
@@ -636,7 +633,7 @@ class DailyLogTab extends StatelessWidget {
                                 ? Colors.white
                                 : Colors.blueGrey.shade800,
                             Colors.blueGrey
-                                .withValues(alpha: isDarkMode ? 0.38 : 0.18)),
+                                .withOpacity(isDarkMode ? 0.38 : 0.18)),
                     ],
                   ),
                   if (!isAbsent &&
@@ -659,14 +656,19 @@ class DailyLogTab extends StatelessWidget {
                         if (selectedJuz > 0)
                           _buildCustomBadge(
                             "نظام: جزء ${_getJuzName(selectedJuz)} 📖",
-                            isDarkMode ? Colors.amber.shade200 : Colors.brown.shade900,
-                            accentGold.withValues(alpha: isDarkMode ? 0.25 : 0.28),
+                            isDarkMode
+                                ? Colors.amber.shade200
+                                : Colors.brown.shade900,
+                            accentGold.withOpacity(isDarkMode ? 0.25 : 0.28),
                           ),
                         if (ijazahText.isNotEmpty)
                           _buildCustomBadge(
                             "إجازة 📜",
-                            isDarkMode ? Colors.orangeAccent : Colors.deepOrange.shade800,
-                            Colors.deepOrange.withValues(alpha: isDarkMode ? 0.28 : 0.16),
+                            isDarkMode
+                                ? Colors.orangeAccent
+                                : Colors.deepOrange.shade800,
+                            Colors.deepOrange
+                                .withOpacity(isDarkMode ? 0.28 : 0.16),
                           ),
                         if (isCompletedStudent && revRatingLegacy.isNotEmpty)
                           _buildCustomBadge(
@@ -674,8 +676,8 @@ class DailyLogTab extends StatelessWidget {
                               isDarkMode
                                   ? Colors.white
                                   : _getRatingColor(revRatingLegacy),
-                              _getRatingColor(revRatingLegacy).withValues(
-                                  alpha: isDarkMode ? 0.35 : 0.16)),
+                              _getRatingColor(revRatingLegacy)
+                                  .withOpacity(isDarkMode ? 0.35 : 0.16)),
                         if (!isCompletedStudent) ...[
                           if (nMemo.isNotEmpty && memRating.isNotEmpty)
                             _buildCustomBadge(
@@ -683,24 +685,24 @@ class DailyLogTab extends StatelessWidget {
                                 isDarkMode
                                     ? Colors.white
                                     : _getRatingColor(memRating),
-                                _getRatingColor(memRating).withValues(
-                                    alpha: isDarkMode ? 0.35 : 0.16)),
+                                _getRatingColor(memRating)
+                                    .withOpacity(isDarkMode ? 0.35 : 0.16)),
                           if (nRev.isNotEmpty && newRevRating.isNotEmpty)
                             _buildCustomBadge(
                                 "م.جديد: $newRevRating",
                                 isDarkMode
                                     ? Colors.white
                                     : _getRatingColor(newRevRating),
-                                _getRatingColor(newRevRating).withValues(
-                                    alpha: isDarkMode ? 0.35 : 0.16)),
+                                _getRatingColor(newRevRating)
+                                    .withOpacity(isDarkMode ? 0.35 : 0.16)),
                           if (fRev.isNotEmpty && oldRevRating.isNotEmpty)
                             _buildCustomBadge(
                                 "م.قديم: $oldRevRating",
                                 isDarkMode
                                     ? Colors.white
                                     : _getRatingColor(oldRevRating),
-                                _getRatingColor(oldRevRating).withValues(
-                                    alpha: isDarkMode ? 0.35 : 0.16)),
+                                _getRatingColor(oldRevRating)
+                                    .withOpacity(isDarkMode ? 0.35 : 0.16)),
                         ],
                       ],
                     ),
@@ -743,10 +745,10 @@ class DailyLogTab extends StatelessWidget {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.redAccent
-                            .withValues(alpha: isDarkMode ? 0.12 : 0.06),
+                            .withOpacity(isDarkMode ? 0.12 : 0.06),
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(
-                          color: Colors.redAccent.withValues(alpha: 0.3),
+                          color: Colors.redAccent.withOpacity(0.3),
                         ),
                       ),
                       child: Column(
@@ -810,17 +812,15 @@ class DailyLogTab extends StatelessWidget {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              accentGold.withValues(
-                                  alpha: isDarkMode ? 0.12 : 0.08),
-                              accentGold.withValues(
-                                  alpha: isDarkMode ? 0.04 : 0.02),
+                              accentGold.withOpacity(isDarkMode ? 0.12 : 0.08),
+                              accentGold.withOpacity(isDarkMode ? 0.04 : 0.02),
                             ],
                             begin: Alignment.topRight,
                             end: Alignment.bottomLeft,
                           ),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                              color: accentGold.withValues(alpha: 0.3)),
+                          border:
+                              Border.all(color: accentGold.withOpacity(0.3)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -874,15 +874,13 @@ class DailyLogTab extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            Colors.teal
-                                .withValues(alpha: isDarkMode ? 0.2 : 0.12),
-                            Colors.teal
-                                .withValues(alpha: isDarkMode ? 0.06 : 0.03),
+                            Colors.teal.withOpacity(isDarkMode ? 0.2 : 0.12),
+                            Colors.teal.withOpacity(isDarkMode ? 0.06 : 0.03),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                            color: Colors.teal.withValues(alpha: 0.35)),
+                        border:
+                            Border.all(color: Colors.teal.withOpacity(0.35)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -890,7 +888,7 @@ class DailyLogTab extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.teal.withValues(alpha: 0.18),
+                              color: Colors.teal.withOpacity(0.18),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(Icons.workspace_premium_rounded,
@@ -962,11 +960,11 @@ class DailyLogTab extends StatelessWidget {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.orangeAccent
-                            .withValues(alpha: isDarkMode ? 0.12 : 0.06),
+                            .withOpacity(isDarkMode ? 0.12 : 0.06),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: Colors.orangeAccent
-                              .withValues(alpha: isDarkMode ? 0.35 : 0.22),
+                              .withOpacity(isDarkMode ? 0.35 : 0.22),
                         ),
                       ),
                       child: Row(
@@ -1013,8 +1011,8 @@ class DailyLogTab extends StatelessWidget {
       child: Divider(
         height: 1,
         color: isDarkMode
-            ? Colors.white.withValues(alpha: 0.1)
-            : primaryColor.withValues(alpha: 0.08),
+            ? Colors.white.withOpacity(0.1)
+            : primaryColor.withOpacity(0.08),
       ),
     );
   }
@@ -1069,12 +1067,12 @@ class DailyLogTab extends StatelessWidget {
         gradient: LinearGradient(
           colors: isDarkMode
               ? [
-                  Colors.white.withValues(alpha: 0.06),
-                  Colors.black.withValues(alpha: 0.18),
+                  Colors.white.withOpacity(0.06),
+                  Colors.black.withOpacity(0.18),
                 ]
               : [
-                  Colors.white.withValues(alpha: 0.72),
-                  Colors.white.withValues(alpha: 0.42),
+                  Colors.white.withOpacity(0.72),
+                  Colors.white.withOpacity(0.42),
                 ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -1082,8 +1080,8 @@ class DailyLogTab extends StatelessWidget {
         borderRadius: BorderRadius.circular(17),
         border: Border.all(
           color: isDarkMode
-              ? Colors.white.withValues(alpha: 0.12)
-              : Colors.white.withValues(alpha: 0.85),
+              ? Colors.white.withOpacity(0.12)
+              : Colors.white.withOpacity(0.85),
           width: 1,
         ),
       ),
@@ -1095,7 +1093,7 @@ class DailyLogTab extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.16),
+                  color: iconColor.withOpacity(0.16),
                   borderRadius: BorderRadius.circular(7),
                 ),
                 child: Icon(icon, size: 13.5, color: iconColor),
@@ -1137,8 +1135,7 @@ class DailyLogTab extends StatelessWidget {
           padding: const EdgeInsets.only(top: 2),
           child: Icon(icon,
               size: 17,
-              color:
-                  isDarkMode ? accentGold : primaryColor.withValues(alpha: 0.7)),
+              color: isDarkMode ? accentGold : primaryColor.withOpacity(0.7)),
         ),
         const SizedBox(width: 8),
         Text("$label: ",
@@ -1171,7 +1168,7 @@ class DailyLogTab extends StatelessWidget {
         color: bgColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: textColor.withValues(alpha: 0.25),
+          color: textColor.withOpacity(0.25),
           width: 0.8,
         ),
       ),
@@ -1200,12 +1197,12 @@ class DailyLogTab extends StatelessWidget {
                 ? LinearGradient(
                     colors: isDarkMode
                         ? [
-                            Colors.white.withValues(alpha: 0.09),
-                            Colors.white.withValues(alpha: 0.03),
+                            Colors.white.withOpacity(0.09),
+                            Colors.white.withOpacity(0.03),
                           ]
                         : [
-                            Colors.white.withValues(alpha: 0.58),
-                            Colors.white.withValues(alpha: 0.34),
+                            Colors.white.withOpacity(0.58),
+                            Colors.white.withOpacity(0.34),
                           ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -1216,14 +1213,13 @@ class DailyLogTab extends StatelessWidget {
             border: Border.all(
               color: customBorderColor ??
                   (isDarkMode
-                      ? Colors.white.withValues(alpha: 0.14)
-                      : Colors.white.withValues(alpha: 0.72)),
+                      ? Colors.white.withOpacity(0.14)
+                      : Colors.white.withOpacity(0.72)),
               width: 1.4,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black
-                    .withValues(alpha: isDarkMode ? 0.22 : 0.035),
+                color: Colors.black.withOpacity(isDarkMode ? 0.22 : 0.035),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
