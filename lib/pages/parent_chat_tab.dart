@@ -320,7 +320,7 @@ class _ParentChatTabState extends State<ParentChatTab>
       children: [
         _buildFastCard(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          borderColor: accentGold.withValues(alpha: 0.45),
+          borderColor: accentGold.withOpacity(0.45),
           child: Row(
             children: [
               Container(
@@ -436,15 +436,15 @@ class _ParentChatTabState extends State<ParentChatTab>
                     },
                     child: _buildFastCard(
                       padding: const EdgeInsets.all(14),
-                      borderColor: accentGold.withValues(alpha: 0.72),
+                      borderColor: accentGold.withOpacity(0.72),
                       gradientColors: isDark
                           ? [
-                              accentGold.withValues(alpha: 0.18),
-                              Colors.white.withValues(alpha: 0.04),
+                              accentGold.withOpacity(0.18),
+                              Colors.white.withOpacity(0.04),
                             ]
                           : [
-                              Colors.white.withValues(alpha: 0.9),
-                              const Color(0xfffef9ec).withValues(alpha: 0.8),
+                              Colors.white.withOpacity(0.9),
+                              const Color(0xfffef9ec).withOpacity(0.8),
                             ],
                       child: Row(
                         children: [
@@ -618,7 +618,7 @@ class _ParentChatTabState extends State<ParentChatTab>
                   size: 19,
                   color: isDark
                       ? Colors.white54
-                      : primaryColor.withValues(alpha: 0.7)),
+                      : primaryColor.withOpacity(0.7)),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
@@ -715,7 +715,7 @@ class _ParentChatTabState extends State<ParentChatTab>
                         size: 44,
                         color: isDark
                             ? Colors.white30
-                            : primaryColor.withValues(alpha: 0.4),
+                            : primaryColor.withOpacity(0.4),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -783,8 +783,8 @@ class _ParentChatTabState extends State<ParentChatTab>
   Widget _buildAvatarFallback(String name, bool isGold) {
     return Container(
       color: isGold
-          ? accentGold.withValues(alpha: 0.2)
-          : primaryColor.withValues(alpha: 0.14),
+          ? accentGold.withOpacity(0.2)
+          : primaryColor.withOpacity(0.14),
       child: Center(
         child: Text(
           name.isNotEmpty ? name.characters.first : '؟',
@@ -799,7 +799,6 @@ class _ParentChatTabState extends State<ParentChatTab>
     );
   }
 
-  // ⚡ بطاقة خفيفة وسريعة بدون BackdropFilter لتفادي تعليق القائمة والـ GPU
   Widget _buildFastCard({
     required Widget child,
     EdgeInsetsGeometry padding = EdgeInsets.zero,
@@ -815,12 +814,12 @@ class _ParentChatTabState extends State<ParentChatTab>
           colors: gradientColors ??
               (isDark
                   ? [
-                      const Color(0xff182438).withValues(alpha: 0.86),
-                      const Color(0xff111927).withValues(alpha: 0.82),
+                      const Color(0xff182438).withOpacity(0.86),
+                      const Color(0xff111927).withOpacity(0.82),
                     ]
                   : [
-                      Colors.white.withValues(alpha: 0.88),
-                      Colors.white.withValues(alpha: 0.74),
+                      Colors.white.withOpacity(0.88),
+                      Colors.white.withOpacity(0.74),
                     ]),
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -829,8 +828,8 @@ class _ParentChatTabState extends State<ParentChatTab>
         border: Border.all(
           color: borderColor ??
               (isDark
-                  ? Colors.white.withValues(alpha: 0.14)
-                  : Colors.white.withValues(alpha: 0.85)),
+                  ? Colors.white.withOpacity(0.14)
+                  : Colors.white.withOpacity(0.85)),
           width: 1.2,
         ),
       ),
@@ -930,7 +929,7 @@ class _PeerConversationTileState extends State<_PeerConversationTile> {
                       border: Border.all(
                         color: widget.isDark
                             ? Colors.white24
-                            : widget.primaryColor.withValues(alpha: 0.25),
+                            : widget.primaryColor.withOpacity(0.25),
                         width: 1.5,
                       ),
                     ),
@@ -1551,8 +1550,8 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: color.withValues(alpha: 0.15),
-              border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5),
+              color: color.withOpacity(0.15),
+              border: Border.all(color: color.withOpacity(0.5), width: 1.5),
             ),
             child: Icon(icon,
                 color: isDark && color == primaryColor ? accentGold : color,
@@ -1577,7 +1576,7 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
     showDialog(
       context: context,
       builder: (_) => Dialog(
-        backgroundColor: Colors.black.withValues(alpha: 0.9),
+        backgroundColor: Colors.black.withOpacity(0.9),
         insetPadding: const EdgeInsets.all(10),
         child: Stack(
           alignment: Alignment.topRight,
@@ -1661,7 +1660,7 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: primaryColor.withValues(alpha: 0.08),
+                        color: primaryColor.withOpacity(0.08),
                       ),
                       child: Text(emoji, style: const TextStyle(fontSize: 24)),
                     ),
@@ -1763,15 +1762,15 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 decoration: BoxDecoration(
                   color: isDark
-                      ? const Color(0xff182438).withValues(alpha: 0.88)
-                      : Colors.white.withValues(alpha: 0.9),
+                      ? const Color(0xff182438).withOpacity(0.88)
+                      : Colors.white.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(25),
                   border: Border.all(
                     color: widget.target.isSupervisor
-                        ? accentGold.withValues(alpha: 0.72)
+                        ? accentGold.withOpacity(0.72)
                         : (isDark
-                            ? Colors.white.withValues(alpha: 0.16)
-                            : Colors.white.withValues(alpha: 0.9)),
+                            ? Colors.white.withOpacity(0.16)
+                            : Colors.white.withOpacity(0.9)),
                     width: 1.3,
                   ),
                 ),
@@ -1779,10 +1778,10 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
                   children: [
                     Container(
                       decoration: BoxDecoration(
-                        color: accentGold.withValues(alpha: 0.16),
+                        color: accentGold.withOpacity(0.16),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                            color: accentGold.withValues(alpha: 0.35)),
+                            color: accentGold.withOpacity(0.35)),
                       ),
                       child: IconButton(
                         onPressed: widget.onBack,
@@ -1803,7 +1802,7 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
                         border: Border.all(
                           color: widget.target.isSupervisor
                               ? accentGold
-                              : primaryColor.withValues(alpha: 0.35),
+                              : primaryColor.withOpacity(0.35),
                           width: 1.8,
                         ),
                       ),
@@ -1857,7 +1856,7 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
                                     fontWeight: FontWeight.bold,
                                     color: isDark
                                         ? accentGold
-                                        : primaryColor.withValues(alpha: 0.85),
+                                        : primaryColor.withOpacity(0.85),
                                   ),
                                 ),
                               ),
@@ -1932,11 +1931,11 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
                             decoration: BoxDecoration(
                               color: isDark
                                   ? const Color(0xff182438)
-                                      .withValues(alpha: 0.85)
-                                  : Colors.white.withValues(alpha: 0.9),
+                                      .withOpacity(0.85)
+                                  : Colors.white.withOpacity(0.9),
                               borderRadius: BorderRadius.circular(26),
                               border: Border.all(
-                                  color: accentGold.withValues(alpha: 0.4)),
+                                  color: accentGold.withOpacity(0.4)),
                             ),
                             child: Text(
                               _activeFilter != 'all'
@@ -2007,12 +2006,12 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
                                         horizontal: 14, vertical: 3),
                                     decoration: BoxDecoration(
                                       color: isDark
-                                          ? Colors.white.withValues(alpha: 0.1)
-                                          : Colors.white.withValues(alpha: 0.9),
+                                          ? Colors.white.withOpacity(0.1)
+                                          : Colors.white.withOpacity(0.9),
                                       borderRadius: BorderRadius.circular(18),
                                       border: Border.all(
                                         color:
-                                            accentGold.withValues(alpha: 0.45),
+                                            accentGold.withOpacity(0.45),
                                       ),
                                     ),
                                     child: Text(
@@ -2064,17 +2063,17 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
                                             ? primaryColor
                                             : (isDark
                                                 ? const Color(0xff1e293b)
-                                                    .withValues(alpha: 0.95)
+                                                    .withOpacity(0.95)
                                                 : Colors.white
-                                                    .withValues(alpha: 0.96)),
+                                                    .withOpacity(0.96)),
                                         border: Border.all(
                                           color: isMe
-                                              ? accentGold.withValues(alpha: 0.5)
+                                              ? accentGold.withOpacity(0.5)
                                               : (isDark
                                                   ? Colors.white
-                                                      .withValues(alpha: 0.14)
+                                                      .withOpacity(0.14)
                                                   : accentGold
-                                                      .withValues(alpha: 0.25)),
+                                                      .withOpacity(0.25)),
                                           width: 1.1,
                                         ),
                                       ),
@@ -2242,11 +2241,11 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   color: isDark
-                      ? const Color(0xff182438).withValues(alpha: 0.92)
-                      : Colors.white.withValues(alpha: 0.95),
+                      ? const Color(0xff182438).withOpacity(0.92)
+                      : Colors.white.withOpacity(0.95),
                   borderRadius: BorderRadius.circular(32),
                   border: Border.all(
-                    color: accentGold.withValues(alpha: 0.58),
+                    color: accentGold.withOpacity(0.58),
                     width: 1.3,
                   ),
                 ),
@@ -2261,8 +2260,8 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: isDark
-                              ? Colors.white.withValues(alpha: 0.07)
-                              : primaryColor.withValues(alpha: 0.07),
+                              ? Colors.white.withOpacity(0.07)
+                              : primaryColor.withOpacity(0.07),
                           borderRadius: BorderRadius.circular(14),
                           border: Border(
                             right: BorderSide(color: accentGold, width: 3.5),
@@ -2365,7 +2364,7 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
 
   Widget _buildHeaderFallback() {
     return Container(
-      color: primaryColor.withValues(alpha: 0.16),
+      color: primaryColor.withOpacity(0.16),
       child: Center(
         child: Text(
           widget.target.targetName.isNotEmpty
@@ -2393,11 +2392,11 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
           color: selected
               ? primaryColor
               : (isDark
-                  ? Colors.white.withValues(alpha: 0.09)
-                  : Colors.white.withValues(alpha: 0.85)),
+                  ? Colors.white.withOpacity(0.09)
+                  : Colors.white.withOpacity(0.85)),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: selected ? accentGold : accentGold.withValues(alpha: 0.35),
+            color: selected ? accentGold : accentGold.withOpacity(0.35),
             width: selected ? 1.3 : 1.0,
           ),
         ),
@@ -2435,10 +2434,10 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: isMe
-            ? Colors.black.withValues(alpha: 0.22)
+            ? Colors.black.withOpacity(0.22)
             : (isDark
-                ? Colors.white.withValues(alpha: 0.07)
-                : primaryColor.withValues(alpha: 0.07)),
+                ? Colors.white.withOpacity(0.07)
+                : primaryColor.withOpacity(0.07)),
         borderRadius: BorderRadius.circular(10),
         border: Border(
           right: BorderSide(color: isMe ? accentGold : primaryColor, width: 3),
@@ -2464,7 +2463,7 @@ class _LiquidConversationViewState extends State<_LiquidConversationView> {
               fontFamily: 'Cairo',
               fontSize: 11.5,
               color: isMe
-                  ? Colors.white.withValues(alpha: 0.88)
+                  ? Colors.white.withOpacity(0.88)
                   : (isDark ? Colors.white70 : Colors.black87),
             ),
           ),
@@ -2693,7 +2692,7 @@ class _StudentRecordingBarState extends State<_StudentRecordingBar>
                   Icons.camera_alt_outlined,
                   color: widget.isDark
                       ? Colors.white60
-                      : widget.primaryColor.withValues(alpha: 0.82),
+                      : widget.primaryColor.withOpacity(0.82),
                   size: 22,
                 ),
                 onPressed: widget.onOpenAttach,
@@ -2723,7 +2722,7 @@ class _StudentRecordingBarState extends State<_StudentRecordingBar>
                   ),
                   shape: BoxShape.circle,
                   border: Border.all(
-                      color: widget.accentGold.withValues(alpha: 0.8),
+                      color: widget.accentGold.withOpacity(0.8),
                       width: 1.3),
                 ),
                 child: Icon(
@@ -2829,7 +2828,7 @@ class _StudentAudioPlayerState extends State<_StudentAudioPlayer> {
   Widget build(BuildContext context) {
     final activeBar = widget.isMe ? widget.accentGold : widget.primaryColor;
     final inactiveBar = widget.isMe
-        ? Colors.white.withValues(alpha: 0.32)
+        ? Colors.white.withOpacity(0.32)
         : (widget.isDark ? Colors.white24 : Colors.grey.shade400);
 
     return SizedBox(
@@ -2881,7 +2880,7 @@ class _StudentAudioPlayerState extends State<_StudentAudioPlayer> {
                     fontSize: 9.5,
                     fontWeight: FontWeight.bold,
                     color: widget.isMe
-                        ? Colors.white.withValues(alpha: 0.85)
+                        ? Colors.white.withOpacity(0.85)
                         : (widget.isDark
                             ? Colors.white60
                             : Colors.grey.shade700),

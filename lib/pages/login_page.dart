@@ -394,8 +394,8 @@ class _LoginPageState extends State<LoginPage>
           ),
           Positioned.fill(
             child: CustomPaint(
-              painter: IslamicPatternPainter(
-                  color: primaryColor.withValues(alpha: 0.025)),
+              painter:
+                  IslamicPatternPainter(color: primaryColor.withOpacity(0.025)),
             ),
           ),
           AnimatedBuilder(
@@ -412,7 +412,7 @@ class _LoginPageState extends State<LoginPage>
                         height: 260,
                         decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: primaryColor.withValues(alpha: 0.06))),
+                            color: primaryColor.withOpacity(0.06))),
                   ),
                   Positioned(
                     bottom: (MediaQuery.of(context).size.height * 0.1) -
@@ -423,7 +423,7 @@ class _LoginPageState extends State<LoginPage>
                         height: 300,
                         decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: goldColor.withValues(alpha: 0.06))),
+                            color: goldColor.withOpacity(0.06))),
                   ),
                 ],
               );
@@ -439,13 +439,13 @@ class _LoginPageState extends State<LoginPage>
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: Colors.white.withOpacity(0.8),
                       shape: BoxShape.circle,
                       border: Border.all(
-                          color: goldColor.withValues(alpha: 0.3), width: 1.5),
+                          color: goldColor.withOpacity(0.3), width: 1.5),
                       boxShadow: [
                         BoxShadow(
-                            color: primaryColor.withValues(alpha: 0.08),
+                            color: primaryColor.withOpacity(0.08),
                             blurRadius: 25,
                             offset: const Offset(0, 10))
                       ],
@@ -455,8 +455,7 @@ class _LoginPageState extends State<LoginPage>
                       decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                              color: primaryColor.withValues(alpha: 0.15),
-                              width: 1)),
+                              color: primaryColor.withOpacity(0.15), width: 1)),
                       child: Icon(Icons.menu_book_rounded,
                           size: 54, color: primaryColor),
                     ),
@@ -493,14 +492,14 @@ class _LoginPageState extends State<LoginPage>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 24, vertical: 28),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.45),
+                          color: Colors.white.withOpacity(0.45),
                           borderRadius: BorderRadius.circular(30),
                           border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.75),
+                              color: Colors.white.withOpacity(0.75),
                               width: 1.5),
                           boxShadow: [
                             BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Colors.black.withOpacity(0.05),
                                 blurRadius: 25,
                                 offset: const Offset(0, 10))
                           ],
@@ -563,7 +562,7 @@ class _LoginPageState extends State<LoginPage>
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                      color: primaryColor.withValues(alpha: 0.3),
+                                      color: primaryColor.withOpacity(0.3),
                                       blurRadius: 15,
                                       offset: const Offset(0, 6))
                                 ],
@@ -597,7 +596,7 @@ class _LoginPageState extends State<LoginPage>
                               children: [
                                 Expanded(
                                   child: Divider(
-                                    color: primaryColor.withValues(alpha: 0.16),
+                                    color: primaryColor.withOpacity(0.16),
                                     thickness: 1,
                                   ),
                                 ),
@@ -610,14 +609,13 @@ class _LoginPageState extends State<LoginPage>
                                       fontFamily: 'Cairo',
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
-                                      color:
-                                          primaryColor.withValues(alpha: 0.65),
+                                      color: primaryColor.withOpacity(0.65),
                                     ),
                                   ),
                                 ),
                                 Expanded(
                                   child: Divider(
-                                    color: primaryColor.withValues(alpha: 0.16),
+                                    color: primaryColor.withOpacity(0.16),
                                     thickness: 1,
                                   ),
                                 ),
@@ -652,20 +650,20 @@ class _LoginPageState extends State<LoginPage>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Colors.white.withValues(alpha: 0.85),
-                const Color(0xfffef9ec).withValues(alpha: 0.85),
+                Colors.white.withOpacity(0.85),
+                const Color(0xfffef9ec).withOpacity(0.85),
               ],
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
             ),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: goldColor.withValues(alpha: 0.75),
+              color: goldColor.withOpacity(0.75),
               width: 1.4,
             ),
             boxShadow: [
               BoxShadow(
-                color: goldColor.withValues(alpha: 0.14),
+                color: goldColor.withOpacity(0.14),
                 blurRadius: 14,
                 offset: const Offset(0, 5),
               ),
@@ -724,25 +722,24 @@ class _LoginPageState extends State<LoginPage>
     return InputDecoration(
       labelText: label,
       labelStyle: TextStyle(
-          color: primaryColor.withValues(alpha: 0.7),
+          color: primaryColor.withOpacity(0.7),
           fontSize: 12,
           fontFamily: 'Cairo',
           fontWeight: FontWeight.w600),
       prefixIcon:
-          Icon(icon, color: primaryColor.withValues(alpha: 0.8), size: 18),
+          Icon(icon, color: primaryColor.withOpacity(0.8), size: 18),
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.55),
+      fillColor: Colors.white.withOpacity(0.55),
       contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
       enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-              color: Colors.white.withValues(alpha: 0.8), width: 1.2)),
+          borderSide:
+              BorderSide(color: Colors.white.withOpacity(0.8), width: 1.2)),
       focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide:
-              BorderSide(color: goldColor.withValues(alpha: 0.8), width: 1.5)),
+          borderSide: BorderSide(color: goldColor.withOpacity(0.8), width: 1.5)),
     );
   }
 }
@@ -798,7 +795,7 @@ class _QrCardScannerSheetState extends State<_QrCardScannerSheet> {
         color: const Color(0xff0f172a),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         border: Border.all(
-          color: widget.goldColor.withValues(alpha: 0.5),
+          color: widget.goldColor.withOpacity(0.5),
           width: 1.4,
         ),
       ),
@@ -813,7 +810,7 @@ class _QrCardScannerSheetState extends State<_QrCardScannerSheet> {
             // تظليل خفيف حول إطار المسح
             ColorFiltered(
               colorFilter: ColorFilter.mode(
-                Colors.black.withValues(alpha: 0.45),
+                Colors.black.withOpacity(0.45),
                 BlendMode.srcOut,
               ),
               child: Stack(
@@ -853,10 +850,10 @@ class _QrCardScannerSheetState extends State<_QrCardScannerSheet> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.55),
+                      color: Colors.black.withOpacity(0.55),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: widget.goldColor.withValues(alpha: 0.5)),
+                      border:
+                          Border.all(color: widget.goldColor.withOpacity(0.5)),
                     ),
                     child: Text(
                       "مسح بطاقة الطالب",
@@ -905,7 +902,7 @@ class _QrCardScannerSheetState extends State<_QrCardScannerSheet> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: widget.goldColor.withValues(alpha: 0.25),
+                      color: widget.goldColor.withOpacity(0.25),
                       blurRadius: 18,
                     ),
                   ],
@@ -921,9 +918,9 @@ class _QrCardScannerSheetState extends State<_QrCardScannerSheet> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.65),
+                  color: Colors.black.withOpacity(0.65),
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+                  border: Border.all(color: Colors.white.withOpacity(0.16)),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -945,7 +942,7 @@ class _QrCardScannerSheetState extends State<_QrCardScannerSheet> {
                       style: TextStyle(
                         fontFamily: 'Cairo',
                         fontSize: 11,
-                        color: Colors.white.withValues(alpha: 0.72),
+                        color: Colors.white.withOpacity(0.72),
                       ),
                     ),
                   ],
@@ -970,13 +967,11 @@ class _QrCardScannerSheetState extends State<_QrCardScannerSheet> {
         height: 40,
         decoration: BoxDecoration(
           color: active
-              ? widget.goldColor.withValues(alpha: 0.28)
-              : Colors.black.withValues(alpha: 0.55),
+              ? widget.goldColor.withOpacity(0.28)
+              : Colors.black.withOpacity(0.55),
           shape: BoxShape.circle,
           border: Border.all(
-            color: active
-                ? widget.goldColor
-                : Colors.white.withValues(alpha: 0.2),
+            color: active ? widget.goldColor : Colors.white.withOpacity(0.2),
           ),
         ),
         child: Icon(
