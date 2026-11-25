@@ -104,8 +104,7 @@ class SummaryTab extends StatelessWidget {
       rawScheduleMap.forEach((key, val) {
         final day = _normalizeDayName(key.toString());
         if (day != null && val != null && val != false) {
-          final periodText =
-              (val == true ? 'عصراً' : val.toString()).trim();
+          final periodText = (val == true ? 'عصراً' : val.toString()).trim();
           if (periodText.isNotEmpty) {
             result[day] = periodText;
           }
@@ -249,10 +248,9 @@ class SummaryTab extends StatelessWidget {
       child: _buildGlassContainer(
         padding: const EdgeInsets.all(18),
         customColor: isDarkMode
-            ? const Color(0xff182234).withValues(alpha: 0.75)
-            : Colors.white.withValues(alpha: 0.85),
-        customBorderColor:
-            goldColor.withValues(alpha: isDarkMode ? 0.38 : 0.48),
+            ? const Color(0xff182234).withOpacity(0.75)
+            : Colors.white.withOpacity(0.85),
+        customBorderColor: goldColor.withOpacity(isDarkMode ? 0.38 : 0.48),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -264,7 +262,7 @@ class SummaryTab extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(9),
                       decoration: BoxDecoration(
-                        color: goldColor.withValues(alpha: 0.16),
+                        color: goldColor.withOpacity(0.16),
                         borderRadius: BorderRadius.circular(13),
                       ),
                       child: Icon(
@@ -304,10 +302,9 @@ class SummaryTab extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
                   decoration: BoxDecoration(
-                    color: goldColor.withValues(alpha: 0.16),
+                    color: goldColor.withOpacity(0.16),
                     borderRadius: BorderRadius.circular(14),
-                    border:
-                        Border.all(color: goldColor.withValues(alpha: 0.45)),
+                    border: Border.all(color: goldColor.withOpacity(0.45)),
                   ),
                   child: Text(
                     "$totalDaysCount أيام / أسبوع",
@@ -335,24 +332,24 @@ class SummaryTab extends StatelessWidget {
                         ? LinearGradient(
                             colors: isDarkMode
                                 ? [
-                                    goldColor.withValues(alpha: 0.3),
-                                    primaryColor.withValues(alpha: 0.55),
+                                    goldColor.withOpacity(0.3),
+                                    primaryColor.withOpacity(0.55),
                                   ]
                                 : [
                                     primaryColor,
-                                    primaryColor.withValues(alpha: 0.88),
+                                    primaryColor.withOpacity(0.88),
                                   ],
                           )
                         : null,
                     color: active
                         ? null
                         : (isDarkMode
-                            ? Colors.white.withValues(alpha: 0.03)
+                            ? Colors.white.withOpacity(0.03)
                             : Colors.grey.shade100),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: active
-                          ? goldColor.withValues(alpha: 0.75)
+                          ? goldColor.withOpacity(0.75)
                           : (isDarkMode
                               ? Colors.white10
                               : Colors.grey.shade300),
@@ -396,8 +393,8 @@ class SummaryTab extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: isDarkMode
-                      ? Colors.black.withValues(alpha: 0.24)
-                      : primaryColor.withValues(alpha: 0.04),
+                      ? Colors.black.withOpacity(0.24)
+                      : primaryColor.withOpacity(0.04),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
@@ -416,12 +413,11 @@ class SummaryTab extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: isDarkMode
-                      ? Colors.black.withValues(alpha: 0.24)
-                      : primaryColor.withValues(alpha: 0.04),
+                      ? Colors.black.withOpacity(0.24)
+                      : primaryColor.withOpacity(0.04),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color:
-                        goldColor.withValues(alpha: isDarkMode ? 0.2 : 0.25),
+                    color: goldColor.withOpacity(isDarkMode ? 0.2 : 0.25),
                   ),
                 ),
                 child: Column(
@@ -457,10 +453,10 @@ class SummaryTab extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: periodColor.withValues(alpha: 0.14),
+                                  color: periodColor.withOpacity(0.14),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color: periodColor.withValues(alpha: 0.35),
+                                    color: periodColor.withOpacity(0.35),
                                   ),
                                 ),
                                 child: Row(
@@ -506,7 +502,7 @@ class SummaryTab extends StatelessWidget {
                             height: 1,
                             color: isDarkMode
                                 ? Colors.white10
-                                : Colors.black.withValues(alpha: 0.05),
+                                : Colors.black.withOpacity(0.05),
                           ),
                       ],
                     );
@@ -559,9 +555,9 @@ class SummaryTab extends StatelessWidget {
               margin: const EdgeInsets.only(left: 20, right: 20, bottom: 10),
               child: _buildGlassContainer(
                 customColor: isDarkMode
-                    ? goldColor.withValues(alpha: 0.1)
-                    : goldColor.withValues(alpha: 0.14),
-                customBorderColor: goldColor.withValues(alpha: 0.45),
+                    ? goldColor.withOpacity(0.1)
+                    : goldColor.withOpacity(0.14),
+                customBorderColor: goldColor.withOpacity(0.45),
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -569,12 +565,11 @@ class SummaryTab extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: goldColor.withValues(alpha: 0.18),
+                        color: goldColor.withOpacity(0.18),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(Icons.wb_sunny_rounded,
-                          color:
-                              isDarkMode ? goldColor : Colors.orange.shade700,
+                          color: isDarkMode ? goldColor : Colors.orange.shade700,
                           size: 22),
                     ),
                     const SizedBox(width: 12),
@@ -607,7 +602,7 @@ class SummaryTab extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 9, vertical: 3),
                               decoration: BoxDecoration(
-                                  color: goldColor.withValues(alpha: 0.2),
+                                  color: goldColor.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(8)),
                               child: Text(source,
                                   style: TextStyle(
@@ -666,12 +661,12 @@ class SummaryTab extends StatelessWidget {
                 gradient: LinearGradient(
                   colors: isDarkMode
                       ? [
-                          goldColor.withValues(alpha: 0.16),
-                          primaryColor.withValues(alpha: 0.36)
+                          goldColor.withOpacity(0.16),
+                          primaryColor.withOpacity(0.36)
                         ]
                       : [
-                          Colors.white.withValues(alpha: 0.88),
-                          const Color(0xfff4f7fa).withValues(alpha: 0.75)
+                          Colors.white.withOpacity(0.88),
+                          const Color(0xfff4f7fa).withOpacity(0.75)
                         ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -679,13 +674,12 @@ class SummaryTab extends StatelessWidget {
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
                     color: isDarkMode
-                        ? goldColor.withValues(alpha: 0.38)
-                        : goldColor.withValues(alpha: 0.42),
+                        ? goldColor.withOpacity(0.38)
+                        : goldColor.withOpacity(0.42),
                     width: 1.4),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black
-                          .withValues(alpha: isDarkMode ? 0.28 : 0.05),
+                      color: Colors.black.withOpacity(isDarkMode ? 0.28 : 0.05),
                       blurRadius: 20,
                       offset: const Offset(0, 10))
                 ]),
@@ -716,7 +710,7 @@ class SummaryTab extends StatelessWidget {
                           horizontal: 9, vertical: 4),
                       decoration: BoxDecoration(
                           color: (isDarkMode ? goldColor : primaryColor)
-                              .withValues(alpha: 0.14),
+                              .withOpacity(0.14),
                           borderRadius: BorderRadius.circular(9)),
                       child: Text("هوية رقمية",
                           style: TextStyle(
@@ -733,7 +727,7 @@ class SummaryTab extends StatelessWidget {
                       height: 1,
                       color: isDarkMode
                           ? Colors.white12
-                          : Colors.black.withValues(alpha: 0.06)),
+                          : Colors.black.withOpacity(0.06)),
                 ),
                 Row(
                   children: [
@@ -745,12 +739,12 @@ class SummaryTab extends StatelessWidget {
                           border: Border.all(
                               color: isDarkMode
                                   ? goldColor
-                                  : primaryColor.withValues(alpha: 0.55),
+                                  : primaryColor.withOpacity(0.55),
                               width: 2.5),
                           boxShadow: [
                             BoxShadow(
                                 color: (isDarkMode ? goldColor : primaryColor)
-                                    .withValues(alpha: 0.22),
+                                    .withOpacity(0.22),
                                 blurRadius: 14)
                           ]),
                       child: ClipRRect(
@@ -796,11 +790,11 @@ class SummaryTab extends StatelessWidget {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: dotColor.withValues(
-                                        alpha: isDarkMode ? 0.15 : 0.1),
+                                    color: dotColor.withOpacity(
+                                        isDarkMode ? 0.15 : 0.1),
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
-                                        color: dotColor.withValues(alpha: 0.4)),
+                                        color: dotColor.withOpacity(0.4)),
                                   ),
                                   child: LivePulseDot(
                                       color: dotColor, label: pulseLabel),
@@ -815,7 +809,7 @@ class SummaryTab extends StatelessWidget {
                             decoration: BoxDecoration(
                                 color: isDarkMode
                                     ? Colors.black26
-                                    : Colors.white.withValues(alpha: 0.72),
+                                    : Colors.white.withOpacity(0.72),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
                                     color: isDarkMode
@@ -897,9 +891,9 @@ class SummaryTab extends StatelessWidget {
           child: _buildGlassContainer(
             padding: const EdgeInsets.all(16),
             customColor: isDarkMode
-                ? goldColor.withValues(alpha: 0.09)
-                : Colors.white.withValues(alpha: 0.78),
-            customBorderColor: goldColor.withValues(alpha: 0.42),
+                ? goldColor.withOpacity(0.09)
+                : Colors.white.withOpacity(0.78),
+            customBorderColor: goldColor.withOpacity(0.42),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -908,14 +902,12 @@ class SummaryTab extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [
-                            goldColor,
-                            goldColor.withValues(alpha: 0.65)
-                          ]),
+                          gradient: LinearGradient(
+                              colors: [goldColor, goldColor.withOpacity(0.65)]),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                                color: goldColor.withValues(alpha: 0.35),
+                                color: goldColor.withOpacity(0.35),
                                 blurRadius: 10,
                                 spreadRadius: 1)
                           ]),
@@ -935,14 +927,13 @@ class SummaryTab extends StatelessWidget {
                                     ? Colors.white70
                                     : Colors.grey.shade700)),
                         const SizedBox(height: 2),
-                        Text(
-                            "اضغط هنا لاستبدال جوائزك وتصفح السجل 🎁",
+                        Text("اضغط هنا لاستبدال جوائزك وتصفح السجل 🎁",
                             style: TextStyle(
                                 fontFamily: 'Cairo',
                                 fontSize: 10,
                                 color: isDarkMode
                                     ? goldColor
-                                    : primaryColor.withValues(alpha: 0.85),
+                                    : primaryColor.withOpacity(0.85),
                                 fontWeight: FontWeight.w700)),
                       ],
                     ),
@@ -973,9 +964,7 @@ class SummaryTab extends StatelessWidget {
 
   Widget _buildAvatarPlaceholder(String name) {
     return Container(
-      color: isDarkMode
-          ? primaryColor
-          : primaryColor.withValues(alpha: 0.12),
+      color: isDarkMode ? primaryColor : primaryColor.withOpacity(0.12),
       child: Center(
         child: Text(
           name.isNotEmpty ? name.substring(0, 1) : '?',
@@ -994,20 +983,17 @@ class SummaryTab extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 5),
       decoration: BoxDecoration(
         color: isDarkMode
-            ? Colors.white.withValues(alpha: 0.05)
-            : Colors.white.withValues(alpha: 0.72),
+            ? Colors.white.withOpacity(0.05)
+            : Colors.white.withOpacity(0.72),
         borderRadius: BorderRadius.circular(13),
         border: Border.all(
-            color: isDarkMode
-                ? Colors.white12
-                : goldColor.withValues(alpha: 0.2)),
+            color: isDarkMode ? Colors.white12 : goldColor.withOpacity(0.2)),
       ),
       child: Column(
         children: [
           Icon(icon,
               size: 14,
-              color:
-                  isDarkMode ? goldColor : primaryColor.withValues(alpha: 0.85)),
+              color: isDarkMode ? goldColor : primaryColor.withOpacity(0.85)),
           const SizedBox(height: 4),
           Text(label,
               style: TextStyle(
@@ -1052,7 +1038,7 @@ class SummaryTab extends StatelessWidget {
                                 value: attendanceRate,
                                 strokeWidth: 5,
                                 backgroundColor: isDarkMode
-                                    ? Colors.green.withValues(alpha: 0.12)
+                                    ? Colors.green.withOpacity(0.12)
                                     : Colors.green.shade50,
                                 valueColor:
                                     const AlwaysStoppedAnimation<Color>(
@@ -1112,7 +1098,7 @@ class SummaryTab extends StatelessWidget {
                                 value: excellentRate,
                                 strokeWidth: 5,
                                 backgroundColor: isDarkMode
-                                    ? goldColor.withValues(alpha: 0.12)
+                                    ? goldColor.withOpacity(0.12)
                                     : const Color(0xfffef9e7),
                                 valueColor:
                                     AlwaysStoppedAnimation<Color>(goldColor)),
@@ -1203,8 +1189,8 @@ class SummaryTab extends StatelessWidget {
       String? badgeText}) {
     return _buildGlassContainer(
       padding: const EdgeInsets.all(15),
-      customColor: baseColor.withValues(alpha: isDarkMode ? 0.11 : 0.06),
-      customBorderColor: baseColor.withValues(alpha: 0.32),
+      customColor: baseColor.withOpacity(isDarkMode ? 0.11 : 0.06),
+      customBorderColor: baseColor.withOpacity(0.32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1214,7 +1200,7 @@ class SummaryTab extends StatelessWidget {
               Container(
                   padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                      color: baseColor.withValues(alpha: 0.16),
+                      color: baseColor.withOpacity(0.16),
                       shape: BoxShape.circle),
                   child: Icon(icon, color: baseColor, size: 18)),
               if (badgeText != null)
@@ -1305,8 +1291,7 @@ class SummaryTab extends StatelessWidget {
 
         double? extractedVal =
             double.tryParse(data['memorizedPages']?.toString() ?? '') ??
-                double.tryParse(
-                    data['totalMemorizedPages']?.toString() ?? '') ??
+                double.tryParse(data['totalMemorizedPages']?.toString() ?? '') ??
                 double.tryParse(
                     data['total_memorized_pages']?.toString() ?? '') ??
                 double.tryParse(data['totalMemorized']?.toString() ?? '') ??
@@ -1377,7 +1362,7 @@ class SummaryTab extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: _buildGlassContainer(
         padding: const EdgeInsets.all(18),
-        customBorderColor: progressColor.withValues(alpha: 0.35),
+        customBorderColor: progressColor.withOpacity(0.35),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1413,7 +1398,7 @@ class SummaryTab extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                        color: progressColor.withValues(alpha: 0.15),
+                        color: progressColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(8)),
                     child: Text(
                         "${(progressPercentage * 100).toStringAsFixed(1)}%",
@@ -1438,12 +1423,11 @@ class SummaryTab extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(11),
               decoration: BoxDecoration(
-                  color: progressColor
-                      .withValues(alpha: isDarkMode ? 0.09 : 0.05),
+                  color: progressColor.withOpacity(isDarkMode ? 0.09 : 0.05),
                   borderRadius: BorderRadius.circular(13),
                   border: Border.all(
-                      color: progressColor.withValues(
-                          alpha: isDarkMode ? 0.24 : 0.14))),
+                      color:
+                          progressColor.withOpacity(isDarkMode ? 0.24 : 0.14))),
               child: Row(
                 children: [
                   Icon(Icons.favorite_rounded,
@@ -1480,19 +1464,18 @@ class SummaryTab extends StatelessWidget {
           decoration: BoxDecoration(
             color: customColor ??
                 (isDarkMode
-                    ? Colors.white.withValues(alpha: 0.06)
-                    : Colors.white.withValues(alpha: 0.72)),
+                    ? Colors.white.withOpacity(0.06)
+                    : Colors.white.withOpacity(0.72)),
             borderRadius: BorderRadius.circular(25),
             border: Border.all(
                 color: customBorderColor ??
                     (isDarkMode
-                        ? Colors.white.withValues(alpha: 0.12)
-                        : goldColor.withValues(alpha: 0.25)),
+                        ? Colors.white.withOpacity(0.12)
+                        : goldColor.withOpacity(0.25)),
                 width: 1.4),
             boxShadow: [
               BoxShadow(
-                  color: Colors.black
-                      .withValues(alpha: isDarkMode ? 0.22 : 0.03),
+                  color: Colors.black.withOpacity(isDarkMode ? 0.22 : 0.03),
                   blurRadius: 15,
                   offset: const Offset(0, 8))
             ],
@@ -1549,7 +1532,7 @@ class _LivePulseDotState extends State<LivePulseDot>
                     boxShadow: [
                       BoxShadow(
                         color: widget.color
-                            .withValues(alpha: 0.4 + (_controller.value * 0.4)),
+                            .withOpacity(0.4 + (_controller.value * 0.4)),
                         blurRadius: 4 + (_controller.value * 6),
                         spreadRadius: 1 + (_controller.value * 2),
                       )
