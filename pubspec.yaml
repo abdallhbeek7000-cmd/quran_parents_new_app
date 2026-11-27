@@ -46,7 +46,7 @@ dependencies:
   provider: ^6.1.2
   googleapis_auth: ^1.6.0     # نسخة أضمن
   http: ^1.2.2
-  record: ^5.1.2
+  record: ^5.1.1
   audioplayers: ^6.0.0
   image_picker: ^1.0.7
   path_provider: ^2.1.2
@@ -77,7 +77,6 @@ flutter_launcher_icons:
 
 
 dependency_overrides:
-  record_linux: ^1.2.1
 
 
 # For information on the generic Dart part of this file, see the
